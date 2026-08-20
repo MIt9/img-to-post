@@ -6,7 +6,7 @@ export function writePost(input: {
   imagePath: string;
   slug: string;
   date: string;
-  text: string;
+  variants: string[];
 }): string {
   const postsDir = join(input.cwd, "posts");
   let dir = join(postsDir, `${input.date}_${input.slug}`);
@@ -19,7 +19,9 @@ export function writePost(input: {
   mkdirSync(dir, { recursive: true });
   const ext = extname(input.imagePath) || ".jpg";
   copyFileSync(input.imagePath, join(dir, `meme${ext}`));
-  writeFileSync(join(dir, "post.md"), input.text);
+  input.variants.forEach((text, i) => {
+    writeFileSync(join(dir, `post-${i + 1}.md`), text);
+  });
 
   return dir;
 }

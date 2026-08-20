@@ -7,7 +7,7 @@ export interface ProviderConfig {
 export interface TopicConfig {
   description: string;
   promptFile: string;
-  variants: number;
+  variants?: number;
   ai?: string;
 }
 

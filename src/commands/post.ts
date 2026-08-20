@@ -20,16 +20,20 @@ export async function postCommand(config: Config, cwd: string, imagePath: string
 
   const prompt = readFileSync(join(config.configDir, topic.promptFile), "utf-8");
 
-  const result = await runProvider(provider, { imagePath, prompt });
-  if (!result.ok) {
-    throw new Error(result.stderr.trim() || "AI provider exited with a non-zero status");
+  const variantCount = topic.variants ?? 1;
+  const rawTexts: string[] = [];
+  for (let i = 0; i < variantCount; i++) {
+    const result = await runProvider(provider, { imagePath, prompt });
+    if (!result.ok) {
+      throw new Error(result.stderr.trim() || "AI provider exited with a non-zero status");
+    }
+    rawTexts.push(result.stdout.trim());
   }
 
-  const rawText = result.stdout.trim();
-  const slug = deriveSlug(rawText, imagePath);
-  const text = rawText.replace(/^SLUG:.*(\r?\n)+/i, "");
+  const slug = deriveSlug(rawTexts[0] ?? "", imagePath);
+  const variants = rawTexts.map((rawText) => rawText.replace(/^SLUG:.*(\r?\n)+/i, ""));
   const date = new Date().toISOString().slice(0, 10);
-  const dir = writePost({ cwd, imagePath, slug, date, text });
+  const dir = writePost({ cwd, imagePath, slug, date, variants });
 
   console.log(`Saved to ${dir}`);
 }
