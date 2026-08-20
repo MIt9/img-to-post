@@ -6,6 +6,7 @@ import { initCommand } from "./commands/init.ts";
 import { topicsCommand } from "./commands/topics.ts";
 import { postCommand } from "./commands/post.ts";
 import { queueCommand } from "./commands/queue.ts";
+import { runSetupWizard, createStdioWizardIO } from "./commands/setup.ts";
 import { runBot } from "./bot.ts";
 import { TelegramClient } from "./telegram.ts";
 
@@ -39,6 +40,15 @@ async function main(): Promise<void> {
     case "init":
       initCommand(process.cwd(), configPath);
       return;
+    case "setup": {
+      const io = await createStdioWizardIO();
+      try {
+        await runSetupWizard(process.cwd(), io, configPath);
+      } finally {
+        io.close();
+      }
+      return;
+    }
     case "topics":
       topicsCommand(loadConfig(configPath));
       return;

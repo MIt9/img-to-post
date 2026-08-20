@@ -5,7 +5,8 @@ Usage:
 
 Commands:
   bot                     Run the Telegram long-poll bot
-  init                    Scaffold img-to-post.config.json + prompts/ in the current directory
+  setup                   Interactive wizard: walks you through the Telegram token, AI command, and topic
+  init                    Non-interactive: scaffold img-to-post.config.json + prompts/ with placeholder values
   post <image> [topic]    Generate a post from a local image
   topics                  List configured topics
   queue list              List queued items and their status
