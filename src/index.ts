@@ -49,6 +49,9 @@ async function main(): Promise<void> {
     }
     case "bot": {
       const config = loadConfig(configPath);
+      if (!config.telegram.botToken) {
+        fail('Config is missing "telegram.botToken" — set it in img-to-post.config.json or IMG2POST_TELEGRAM_BOT_TOKEN.');
+      }
       const tg = new TelegramClient(config.telegram.botToken);
       await runBot(config, process.cwd(), tg);
       return;

@@ -81,6 +81,21 @@ test("downloadFile resolves the file path via getFile then writes the bytes from
   expect([...readFileSync(dest)]).toEqual([1, 2, 3]);
 });
 
+test("downloadFile throws when the file fetch response is not ok", async () => {
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    if (url.toString().endsWith("/getFile")) {
+      return new Response(JSON.stringify({ ok: true, result: { file_path: "photos/file_1.jpg" } }));
+    }
+    return new Response("not found", { status: 404 });
+  }) as typeof fetch;
+
+  dir = mkdtempSync(join(tmpdir(), "img2post-tg-"));
+  const dest = join(dir, "out.jpg");
+
+  const tg = new TelegramClient("TOKEN");
+  await expect(tg.downloadFile("FILE1", dest)).rejects.toThrow(/404/);
+});
+
 test("throws when the Bot API responds with ok:false", async () => {
   globalThis.fetch = (async (_url: string, _init?: RequestInit) =>
     new Response(JSON.stringify({ ok: false, description: "Unauthorized" }))) as typeof fetch;

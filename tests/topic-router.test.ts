@@ -22,3 +22,8 @@ test("falls back to defaultTopic when there is no caption", () => {
 test("falls back to defaultTopic when the caption has no leading slash", () => {
   expect(routeTopic("tech", topics, "tech")).toBe("tech");
 });
+
+test("falls back to defaultTopic for inherited-property-name captions not actually configured", () => {
+  expect(routeTopic("/constructor", topics, "tech")).toBe("tech");
+  expect(routeTopic("/toString", topics, "tech")).toBe("tech");
+});

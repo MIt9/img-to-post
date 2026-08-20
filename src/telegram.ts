@@ -48,6 +48,9 @@ export class TelegramClient {
   async downloadFile(fileId: string, destPath: string): Promise<void> {
     const { file_path } = await callApi<{ file_path: string }>(this.token, "getFile", { file_id: fileId });
     const res = await fetch(`https://api.telegram.org/file/bot${this.token}/${file_path}`);
+    if (!res.ok) {
+      throw new Error(`Failed to download file (HTTP ${res.status}): ${file_path}`);
+    }
     await Bun.write(destPath, res);
   }
 }

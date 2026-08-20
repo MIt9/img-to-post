@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Config } from "../src/types.ts";
 import type { TgUpdate } from "../src/telegram.ts";
-import { handleUpdate } from "../src/bot.ts";
+import { handleUpdate, runBot } from "../src/bot.ts";
 
 let cwd: string;
 let configDir: string;
@@ -189,4 +189,29 @@ test("AI failure during processing replies with the error and saves no folder", 
   expect(existsSync(join(cwd, "posts"))).toBe(false);
   expect(tg.sent).toHaveLength(1);
   expect(tg.sent[0]?.text).toBe("❌ boom");
+});
+
+test("runBot survives a getUpdates failure instead of crashing the process", async () => {
+  const script = fixture(`#!/bin/sh\necho unused\n`);
+  cwd = mkdtempSync(join(tmpdir(), "img2post-bot-cwd-"));
+  const config = baseConfig(script);
+  const sent: { chatId: number; text: string }[] = [];
+  let call = 0;
+
+  const tg = {
+    async sendMessage(chatId: number, text: string) {
+      sent.push({ chatId, text });
+    },
+    async downloadFile() {},
+    async getUpdates(_offset: number) {
+      call += 1;
+      if (call === 1) throw new Error("network blip");
+      return [{ update_id: 1, message: { chat: { id: 1 }, text: "/stop" } }];
+    },
+  };
+
+  await runBot(config, cwd, tg);
+
+  expect(call).toBeGreaterThanOrEqual(2);
+  expect(sent.some((m) => m.text.includes("Bye"))).toBe(true);
 });

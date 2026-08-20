@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Config } from "./types.ts";
-import type { TgUpdate, TelegramClient } from "./telegram.ts";
+import type { TgUpdate } from "./telegram.ts";
 import { routeTopic } from "./topic-router.ts";
 import { generatePost } from "./generate.ts";
 
@@ -32,6 +32,10 @@ function topicList(config: Config): string {
 export interface TgClientLike {
   sendMessage(chatId: number, text: string): Promise<void>;
   downloadFile(fileId: string, destPath: string): Promise<void>;
+}
+
+export interface TgPollClientLike extends TgClientLike {
+  getUpdates(offset: number): Promise<TgUpdate[]>;
 }
 
 export async function handleUpdate(
@@ -86,10 +90,19 @@ export async function handleUpdate(
   }
 }
 
-export async function runBot(config: Config, cwd: string, tg: TelegramClient): Promise<void> {
+const POLL_ERROR_BACKOFF_MS = 2000;
+
+export async function runBot(config: Config, cwd: string, tg: TgPollClientLike): Promise<void> {
   let offset = 0;
   for (;;) {
-    const updates = await tg.getUpdates(offset);
+    let updates: TgUpdate[];
+    try {
+      updates = await tg.getUpdates(offset);
+    } catch (err) {
+      console.error(`getUpdates failed, retrying: ${err instanceof Error ? err.message : String(err)}`);
+      await new Promise((resolve) => setTimeout(resolve, POLL_ERROR_BACKOFF_MS));
+      continue;
+    }
     for (const update of updates) {
       offset = update.update_id + 1;
       const result = await handleUpdate(update, config, cwd, tg);

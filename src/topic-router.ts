@@ -5,5 +5,5 @@ export function routeTopic(
 ): string {
   const match = caption?.match(/^\/(\S+)/);
   const key = match?.[1];
-  return key !== undefined && key in topics ? key : defaultTopic;
+  return key !== undefined && Object.hasOwn(topics, key) ? key : defaultTopic;
 }
