@@ -1,0 +1,20 @@
+{
+  "name": "img-to-post",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "img-to-post": "src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "build": "bun build src/index.ts --compile --outfile img-to-post"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
