@@ -61,10 +61,12 @@ export async function handleUpdate(
   const text = message.text?.trim();
 
   if (text === "/start") {
+    console.log(`[chat ${chatId}] /start`);
     await tg.sendMessage(chatId, USAGE);
     return;
   }
   if (text === "/stop") {
+    console.log(`[chat ${chatId}] /stop — shutting down`);
     await tg.sendMessage(chatId, "Stopping. Bye!");
     return "stop";
   }
@@ -81,6 +83,7 @@ export async function handleUpdate(
 
   if (!fileId) {
     if (text?.startsWith("/")) {
+      console.log(`[chat ${chatId}] unrecognized command "${text}" — sent topic list`);
       await tg.sendMessage(chatId, topicList(config));
     }
     return;
@@ -102,15 +105,18 @@ export async function handleUpdate(
         queue.add({ chatId, imagePath: copyPath, topic: topicKey, batchId });
       }
       rmSync(basePath, { force: true });
+      console.log(`[chat ${chatId}] queued ${topicKeys.length} posts (all topics), batch ${batchId}`);
       await tg.sendMessage(chatId, `📥 Queued ${topicKeys.length} posts (all topics)`);
     } else {
       const topicKey = routeTopic(message.caption, config.topics, config.defaultTopic);
       queue.add({ chatId, imagePath: basePath, topic: topicKey });
       const position = queue.list().filter((i) => i.status === "pending" || i.status === "processing").length;
+      console.log(`[chat ${chatId}] queued photo for topic "${topicKey}" (position ${position})`);
       await tg.sendMessage(chatId, `📥 Queued (position ${position})`);
     }
   } catch (err) {
     const errorText = err instanceof Error ? err.message : String(err);
+    console.error(`[chat ${chatId}] error handling update: ${errorText}`);
     await tg.sendMessage(chatId, `❌ ${errorText}`).catch(() => {});
   }
 }
@@ -133,6 +139,8 @@ export async function drainQueue(queue: Queue, config: Config, cwd: string, tg: 
   const siblingsAtStart = batchId ? queue.list().filter((i) => i.batchId === batchId) : undefined;
   const isFirstInBatch = siblingsAtStart?.filter((i) => i.id !== item.id).every((i) => i.status === "pending") ?? false;
 
+  console.log(`[chat ${item.chatId}] generating post for topic "${item.topic}" (item ${item.id})`);
+
   try {
     if (batchId) {
       if (isFirstInBatch) {
@@ -143,6 +151,7 @@ export async function drainQueue(queue: Queue, config: Config, cwd: string, tg: 
     }
 
     const { dir, variants } = await generatePost(config, cwd, item.imagePath, item.topic);
+    console.log(`[chat ${item.chatId}] done — saved to ${dir}`);
 
     if (batchId) {
       queue.complete(item.id, dir);
@@ -153,6 +162,7 @@ export async function drainQueue(queue: Queue, config: Config, cwd: string, tg: 
     }
   } catch (err) {
     const errorText = err instanceof Error ? err.message : String(err);
+    console.error(`[chat ${item.chatId}] failed — ${errorText}`);
     queue.fail(item.id, errorText);
 
     if (batchId) {
@@ -168,9 +178,20 @@ export async function drainQueue(queue: Queue, config: Config, cwd: string, tg: 
 
 const POLL_ERROR_BACKOFF_MS = 2000;
 
+function queueStatusLine(queue: Queue): string {
+  const items = queue.list();
+  const counts: Record<string, number> = {};
+  for (const item of items) counts[item.status] = (counts[item.status] ?? 0) + 1;
+  const parts = Object.entries(counts).map(([status, n]) => `${n} ${status}`);
+  return parts.length ? parts.join(", ") : "empty";
+}
+
 export async function runBot(config: Config, cwd: string, tg: TgPollClientLike): Promise<void> {
   const queue = new Queue(join(cwd, "queue.json"));
   queue.reclaimStaleProcessing();
+  console.log(`img-to-post bot is running. Queue: ${queueStatusLine(queue)}.`);
+  console.log("Listening for Telegram messages (Ctrl+C or /stop in chat to quit)...");
+
   for (;;) {
     let updates: TgUpdate[];
     try {
@@ -180,10 +201,16 @@ export async function runBot(config: Config, cwd: string, tg: TgPollClientLike):
       await new Promise((resolve) => setTimeout(resolve, POLL_ERROR_BACKOFF_MS));
       continue;
     }
+    if (updates.length > 0) {
+      console.log(`Received ${updates.length} update(s).`);
+    }
     for (const update of updates) {
       queue.setOffset(update.update_id + 1);
       const result = await handleUpdate(update, config, cwd, tg, queue);
-      if (result === "stop") return;
+      if (result === "stop") {
+        console.log("Bot stopped.");
+        return;
+      }
     }
     while (await drainQueue(queue, config, cwd, tg)) {
       // keep draining until the queue is empty before blocking on the next long poll
