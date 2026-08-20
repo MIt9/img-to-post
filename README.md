@@ -15,14 +15,24 @@ scripts) via shell commands defined in the config.
 
 ## Install (macOS, no Bun/git required)
 
-Download the universal binary from the
-[latest release](https://github.com/MIt9/img-to-post/releases/latest), then:
+```
+curl -fsSL https://raw.githubusercontent.com/MIt9/img-to-post/main/install.sh | sh
+```
+
+Downloads the latest universal binary (arm64+x64) to `~/.local/bin/img-to-post`
+and tells you if that's not already on your `PATH`. Then:
+
+```
+img-to-post init
+```
+
+Prefer to do it by hand? Download the binary from the
+[latest release](https://github.com/MIt9/img-to-post/releases/latest) instead:
 
 ```
 chmod +x img-to-post-macos
 xattr -d com.apple.quarantine img-to-post-macos   # macOS blocks unsigned downloads by default
 mv img-to-post-macos /usr/local/bin/img-to-post   # optional: put it on PATH
-img-to-post init
 ```
 
 Building from source instead (any platform Bun supports): see
