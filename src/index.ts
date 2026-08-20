@@ -4,13 +4,14 @@ import { HELP } from "./help.ts";
 import { loadConfig } from "./config.ts";
 import { initCommand } from "./commands/init.ts";
 import { topicsCommand } from "./commands/topics.ts";
+import { postCommand } from "./commands/post.ts";
 
 function fail(message: string): never {
   console.error(message);
   process.exit(1);
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
 
   if (!command || command === "--help" || command === "-h") {
@@ -23,7 +24,7 @@ function main(): void {
     return;
   }
 
-  const { values } = parseArgs({
+  const { values, positionals } = parseArgs({
     args: rest,
     options: { config: { type: "string" } },
     allowPositionals: true,
@@ -38,8 +39,13 @@ function main(): void {
     case "topics":
       topicsCommand(loadConfig(configPath));
       return;
+    case "post": {
+      const [imagePath, topic] = positionals;
+      if (!imagePath) fail("usage: img-to-post post <image> [topic]");
+      await postCommand(loadConfig(configPath), process.cwd(), imagePath, topic);
+      return;
+    }
     case "bot":
-    case "post":
     case "queue":
       fail(`"${command}" is not implemented yet.`);
     default:
@@ -48,7 +54,7 @@ function main(): void {
 }
 
 try {
-  main();
+  await main();
 } catch (err) {
   fail(err instanceof Error ? err.message : String(err));
 }

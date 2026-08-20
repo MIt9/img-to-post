@@ -6,7 +6,7 @@ Usage:
 Commands:
   bot                     Run the Telegram long-poll bot (not implemented yet)
   init                    Scaffold img-to-post.config.json + prompts/ in the current directory
-  post <image> [topic]    Generate a post from a local image (not implemented yet)
+  post <image> [topic]    Generate a post from a local image
   topics                  List configured topics
   queue                   Inspect/manage the processing queue (not implemented yet)
 
