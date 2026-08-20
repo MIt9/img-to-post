@@ -1,10 +1,10 @@
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { Config } from "./types.ts";
 import type { TgUpdate } from "./telegram.ts";
 import { routeTopic } from "./topic-router.ts";
 import { generatePost } from "./generate.ts";
+import { Queue } from "./queue.ts";
 
 const USAGE =
   "Send a photo (optionally with a /<topic> caption) and I'll turn it into a post.\n\n" +
@@ -38,11 +38,20 @@ export interface TgPollClientLike extends TgClientLike {
   getUpdates(offset: number): Promise<TgUpdate[]>;
 }
 
+const DOWNLOADS_DIR_NAME = ".img-to-post-downloads";
+
+let downloadCounter = 0;
+function nextDownloadName(ext: string): string {
+  downloadCounter += 1;
+  return `${Date.now()}-${downloadCounter}${ext}`;
+}
+
 export async function handleUpdate(
   update: TgUpdate,
   config: Config,
   cwd: string,
   tg: TgClientLike,
+  queue: Queue,
 ): Promise<"stop" | void> {
   const message = update.message;
   if (!message) return;
@@ -76,37 +85,55 @@ export async function handleUpdate(
   }
 
   const topicKey = routeTopic(message.caption, config.topics, config.defaultTopic);
-  const tmpDir = mkdtempSync(join(tmpdir(), "img2post-bot-"));
+  const downloadsDir = join(cwd, DOWNLOADS_DIR_NAME);
+  if (!existsSync(downloadsDir)) mkdirSync(downloadsDir, { recursive: true });
+  const imagePath = join(downloadsDir, nextDownloadName(ext));
+  await tg.downloadFile(fileId, imagePath);
+
+  queue.add({ chatId, imagePath, topic: topicKey });
+  const position = queue.list().filter((i) => i.status === "pending").length;
+  await tg.sendMessage(chatId, `📥 Queued (position ${position})`);
+}
+
+export async function drainQueue(queue: Queue, config: Config, cwd: string, tg: TgClientLike): Promise<boolean> {
+  const item = queue.next();
+  if (!item) return false;
+
+  await tg.sendMessage(item.chatId, "⏳ Generating post…");
   try {
-    const imagePath = join(tmpDir, `download${ext}`);
-    await tg.downloadFile(fileId, imagePath);
-    const { dir, variants } = await generatePost(config, cwd, imagePath, topicKey);
-    await tg.sendMessage(chatId, `Saved to ${dir}\n\n${variants[0] ?? ""}`);
+    const { dir, variants } = await generatePost(config, cwd, item.imagePath, item.topic);
+    queue.complete(item.id);
+    await tg.sendMessage(item.chatId, `Saved to ${dir}\n\n${variants[0] ?? ""}`);
   } catch (err) {
     const errorText = err instanceof Error ? err.message : String(err);
-    await tg.sendMessage(chatId, `❌ ${errorText}`);
+    queue.fail(item.id, errorText);
+    await tg.sendMessage(item.chatId, `❌ ${errorText}`);
   } finally {
-    rmSync(tmpDir, { recursive: true, force: true });
+    rmSync(item.imagePath, { force: true });
   }
+  return true;
 }
 
 const POLL_ERROR_BACKOFF_MS = 2000;
 
 export async function runBot(config: Config, cwd: string, tg: TgPollClientLike): Promise<void> {
-  let offset = 0;
+  const queue = new Queue(join(cwd, "queue.json"));
   for (;;) {
     let updates: TgUpdate[];
     try {
-      updates = await tg.getUpdates(offset);
+      updates = await tg.getUpdates(queue.getOffset());
     } catch (err) {
       console.error(`getUpdates failed, retrying: ${err instanceof Error ? err.message : String(err)}`);
       await new Promise((resolve) => setTimeout(resolve, POLL_ERROR_BACKOFF_MS));
       continue;
     }
     for (const update of updates) {
-      offset = update.update_id + 1;
-      const result = await handleUpdate(update, config, cwd, tg);
+      queue.setOffset(update.update_id + 1);
+      const result = await handleUpdate(update, config, cwd, tg, queue);
       if (result === "stop") return;
+    }
+    while (await drainQueue(queue, config, cwd, tg)) {
+      // keep draining until the queue is empty before blocking on the next long poll
     }
   }
 }
