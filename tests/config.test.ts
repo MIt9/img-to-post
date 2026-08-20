@@ -84,6 +84,16 @@ test("env vars override file values", () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+test("throws a clear ConfigError when required sections are missing", () => {
+  const dir = mkdtempSync(join(tmpdir(), "img2post-"));
+  const path = join(dir, "img-to-post.config.json");
+  writeFileSync(path, JSON.stringify({ defaultTopic: "tech" }));
+
+  expect(() => loadConfig(path)).toThrow(ConfigError);
+
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test("resolveConfigPath prefers explicit arg, then IMG2POST_CONFIG, then default", () => {
   expect(resolveConfigPath("explicit.json")).toBe("explicit.json");
 

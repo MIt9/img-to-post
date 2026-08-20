@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { parseArgs } from "node:util";
 import { HELP } from "./help.ts";
-import { loadConfig, ConfigError } from "./config.ts";
+import { loadConfig } from "./config.ts";
 import { initCommand } from "./commands/init.ts";
 import { topicsCommand } from "./commands/topics.ts";
 
@@ -18,24 +18,30 @@ function main(): void {
     return;
   }
 
+  if (rest.includes("--help") || rest.includes("-h")) {
+    console.log(HELP);
+    return;
+  }
+
   const { values } = parseArgs({
     args: rest,
     options: { config: { type: "string" } },
     allowPositionals: true,
+    strict: false,
   });
+  const configPath = typeof values.config === "string" ? values.config : undefined;
 
   switch (command) {
     case "init":
-      initCommand(process.cwd());
+      initCommand(process.cwd(), configPath);
       return;
     case "topics":
-      topicsCommand(loadConfig(values.config));
+      topicsCommand(loadConfig(configPath));
       return;
     case "bot":
     case "post":
     case "queue":
       fail(`"${command}" is not implemented yet.`);
-      return;
     default:
       fail(`Unknown command: "${command}". Run "img-to-post --help" for usage.`);
   }
@@ -44,6 +50,5 @@ function main(): void {
 try {
   main();
 } catch (err) {
-  if (err instanceof ConfigError) fail(err.message);
   fail(err instanceof Error ? err.message : String(err));
 }

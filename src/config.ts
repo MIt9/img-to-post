@@ -24,6 +24,21 @@ export function loadConfig(explicitPath?: string): Config {
     throw new ConfigError(`Config file is not valid JSON: ${configPath}`);
   }
 
+  if (
+    typeof config.telegram !== "object" ||
+    config.telegram === null ||
+    typeof config.ai !== "object" ||
+    config.ai === null ||
+    typeof config.ai.providers !== "object" ||
+    config.ai.providers === null ||
+    typeof config.topics !== "object" ||
+    config.topics === null
+  ) {
+    throw new ConfigError(
+      `Config file is missing required sections (telegram, ai, ai.providers, topics): ${configPath}`,
+    );
+  }
+
   config.configDir = dirname(resolve(configPath));
 
   if (process.env.IMG2POST_TELEGRAM_BOT_TOKEN) {

@@ -1,12 +1,13 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import type { Config } from "../types.ts";
+import { resolveConfigPath } from "../config.ts";
 
 const STARTER_PROMPT = "Write a short, punchy engineering-focused post based on this image.\n";
 
-export function initCommand(cwd: string): void {
-  const configPath = join(cwd, "img-to-post.config.json");
-  const promptsDir = join(cwd, "prompts");
+export function initCommand(cwd: string, explicitConfigPath?: string): void {
+  const configPath = resolve(cwd, resolveConfigPath(explicitConfigPath));
+  const promptsDir = join(dirname(configPath), "prompts");
   const promptPath = join(promptsDir, "tech.txt");
 
   if (existsSync(configPath)) {
