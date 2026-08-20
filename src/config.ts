@@ -49,6 +49,14 @@ export function loadConfig(explicitPath?: string): Config {
     }
   }
 
+  for (const [key, topic] of Object.entries(config.topics)) {
+    if (topic?.variants !== undefined && !(Number.isInteger(topic.variants) && topic.variants > 0)) {
+      throw new ConfigError(
+        `Topic "${key}" has an invalid "variants" (must be a positive integer if set): ${configPath}`,
+      );
+    }
+  }
+
   config.configDir = dirname(resolve(configPath));
 
   if (process.env.IMG2POST_TELEGRAM_BOT_TOKEN) {

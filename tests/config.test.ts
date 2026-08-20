@@ -94,6 +94,24 @@ test("throws a clear ConfigError when required sections are missing", () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+test("throws a clear ConfigError when a topic's variants is zero or negative", () => {
+  const dir = mkdtempSync(join(tmpdir(), "img2post-"));
+  const path = join(dir, "img-to-post.config.json");
+  writeFileSync(
+    path,
+    JSON.stringify({
+      telegram: { botToken: "t" },
+      defaultTopic: "tech",
+      ai: { default: "mycli", providers: {} },
+      topics: { tech: { description: "d", promptFile: "prompts/tech.txt", variants: 0 } },
+    }),
+  );
+
+  expect(() => loadConfig(path)).toThrow(ConfigError);
+
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test("resolveConfigPath prefers explicit arg, then IMG2POST_CONFIG, then default", () => {
   expect(resolveConfigPath("explicit.json")).toBe("explicit.json");
 
