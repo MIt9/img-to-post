@@ -24,6 +24,23 @@ test("add appends a pending item and persists it", () => {
   expect(queue.list()).toEqual([item]);
 });
 
+test("add accepts an optional batchId and persists it", () => {
+  const queue = new Queue(queuePath());
+  const item = queue.add({ chatId: 1, imagePath: "/tmp/a.jpg", topic: "tech", batchId: "batch-1" });
+
+  expect(item.batchId).toBe("batch-1");
+  expect(queue.list()[0]?.batchId).toBe("batch-1");
+});
+
+test("complete accepts an optional resultSummary and persists it", () => {
+  const queue = new Queue(queuePath());
+  const a = queue.add({ chatId: 1, imagePath: "a", topic: "tech" });
+  queue.next();
+  queue.complete(a.id, "/cwd/posts/2026-08-20_slug");
+
+  expect(queue.list()[0]?.resultSummary).toBe("/cwd/posts/2026-08-20_slug");
+});
+
 test("list returns items in insertion order", () => {
   const queue = new Queue(queuePath());
   const a = queue.add({ chatId: 1, imagePath: "a", topic: "tech" });

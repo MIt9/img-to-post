@@ -387,3 +387,82 @@ test("restart resumes the queue and offset without reprocessing or duplicate rep
   // no Telegram replies were re-sent for the update consumed during the first run
   expect(firstRunTg.sent).toEqual([{ chatId: 1, text: "📥 Queued (position 1)" }]);
 });
+
+test("a /all caption fans out one download into one queue item per configured topic", async () => {
+  const script = fixture(`#!/bin/sh\necho unused\n`);
+  cwd = mkdtempSync(join(tmpdir(), "img2post-bot-cwd-"));
+  const config = baseConfig(script);
+  const tg = fakeTg();
+  const queue = newQueue();
+
+  const update: TgUpdate = {
+    update_id: 1,
+    message: { chat: { id: 9 }, caption: "/all", photo: [{ file_id: "p1" }] },
+  };
+  await handleUpdate(update, config, cwd, tg, queue);
+
+  expect(tg.downloaded).toHaveLength(1);
+  const items = queue.list();
+  expect(items).toHaveLength(2);
+  expect(items.map((i) => i.topic).sort()).toEqual(["life", "tech"]);
+  expect(new Set(items.map((i) => i.imagePath)).size).toBe(2);
+  const batchId = items[0]?.batchId;
+  expect(batchId).toBeTruthy();
+  expect(items.every((i) => i.batchId === batchId)).toBe(true);
+  expect(tg.sent).toEqual([{ chatId: 9, text: "📥 Queued 2 posts (all topics)" }]);
+});
+
+test("/all fan-out cleans up the shared base download after making per-topic copies", async () => {
+  const script = fixture(`#!/bin/sh\necho unused\n`);
+  cwd = mkdtempSync(join(tmpdir(), "img2post-bot-cwd-"));
+  const config = baseConfig(script);
+  const tg = fakeTg();
+  const queue = newQueue();
+
+  await handleUpdate(
+    { update_id: 1, message: { chat: { id: 9 }, caption: "/all", photo: [{ file_id: "p1" }] } },
+    config,
+    cwd,
+    tg,
+    queue,
+  );
+
+  const downloadsDir = join(cwd, ".img-to-post-downloads");
+  const { readdirSync } = await import("node:fs");
+  const files = readdirSync(downloadsDir);
+  // exactly one file per queue item's imagePath, no extra leftover base download
+  expect(files).toHaveLength(2);
+  expect(queue.list().every((i) => files.includes(i.imagePath.split("/").pop()!))).toBe(true);
+});
+
+test("draining a batch sends one progress message, then one combined summary (mixed success/failure)", async () => {
+  const script = fixture(
+    `#!/bin/sh\ncase "$1" in *life*) echo "boom" >&2; exit 1 ;; *) echo "SLUG: ok-post"; echo ""; echo "text" ;; esac\n`,
+  );
+  cwd = mkdtempSync(join(tmpdir(), "img2post-bot-cwd-"));
+  const config = baseConfig(script);
+  const tg = fakeTg();
+  const queue = newQueue();
+
+  await handleUpdate(
+    { update_id: 1, message: { chat: { id: 9 }, caption: "/all", photo: [{ file_id: "p1" }] } },
+    config,
+    cwd,
+    tg,
+    queue,
+  );
+  tg.sent.length = 0;
+
+  await drainQueue(queue, config, cwd, tg);
+  expect(tg.sent).toEqual([{ chatId: 9, text: "⏳ Generating posts (2)…" }]);
+
+  await drainQueue(queue, config, cwd, tg);
+  expect(tg.sent).toHaveLength(2);
+  const summary = tg.sent[1]!.text;
+  expect(summary).toContain("2 posts done");
+  expect(summary).toMatch(/✓ tech: .*posts/);
+  expect(summary).toContain("✗ life: boom");
+
+  expect(queue.list().find((i) => i.topic === "tech")?.status).toBe("completed");
+  expect(queue.list().find((i) => i.topic === "life")?.status).toBe("failed");
+});

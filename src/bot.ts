@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, rmSync, copyFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { join, extname } from "node:path";
 import type { Config } from "./types.ts";
 import type { TgUpdate } from "./telegram.ts";
 import { routeTopic } from "./topic-router.ts";
@@ -7,7 +8,8 @@ import { generatePost } from "./generate.ts";
 import { Queue } from "./queue.ts";
 
 const USAGE =
-  "Send a photo (optionally with a /<topic> caption) and I'll turn it into a post.\n\n" +
+  "Send a photo (optionally with a /<topic> caption) and I'll turn it into a post.\n" +
+  "Caption /all to generate one post per configured topic from the same photo.\n\n" +
   "Commands:\n/start - show this message\n/stop - shut the bot down";
 
 const MIME_EXT: Record<string, string> = {
@@ -84,35 +86,80 @@ export async function handleUpdate(
     return;
   }
 
-  const topicKey = routeTopic(message.caption, config.topics, config.defaultTopic);
+  const isAllTopics = /^\/all(\s|$)/i.test(message.caption?.trim() ?? "");
   try {
     const downloadsDir = join(cwd, DOWNLOADS_DIR_NAME);
     if (!existsSync(downloadsDir)) mkdirSync(downloadsDir, { recursive: true });
-    const imagePath = join(downloadsDir, nextDownloadName(ext));
-    await tg.downloadFile(fileId, imagePath);
+    const basePath = join(downloadsDir, nextDownloadName(ext));
+    await tg.downloadFile(fileId, basePath);
 
-    queue.add({ chatId, imagePath, topic: topicKey });
-    const position = queue.list().filter((i) => i.status === "pending" || i.status === "processing").length;
-    await tg.sendMessage(chatId, `📥 Queued (position ${position})`);
+    if (isAllTopics) {
+      const topicKeys = Object.keys(config.topics);
+      const batchId = randomUUID();
+      for (const topicKey of topicKeys) {
+        const copyPath = `${basePath.slice(0, -extname(basePath).length)}-${topicKey}${extname(basePath)}`;
+        copyFileSync(basePath, copyPath);
+        queue.add({ chatId, imagePath: copyPath, topic: topicKey, batchId });
+      }
+      rmSync(basePath, { force: true });
+      await tg.sendMessage(chatId, `📥 Queued ${topicKeys.length} posts (all topics)`);
+    } else {
+      const topicKey = routeTopic(message.caption, config.topics, config.defaultTopic);
+      queue.add({ chatId, imagePath: basePath, topic: topicKey });
+      const position = queue.list().filter((i) => i.status === "pending" || i.status === "processing").length;
+      await tg.sendMessage(chatId, `📥 Queued (position ${position})`);
+    }
   } catch (err) {
     const errorText = err instanceof Error ? err.message : String(err);
     await tg.sendMessage(chatId, `❌ ${errorText}`).catch(() => {});
   }
 }
 
+async function maybeSendBatchSummary(queue: Queue, batchId: string, chatId: number, tg: TgClientLike): Promise<void> {
+  const items = queue.list().filter((i) => i.batchId === batchId);
+  const allDone = items.every((i) => i.status === "completed" || i.status === "failed");
+  if (!allDone) return;
+  const lines = items.map((i) =>
+    i.status === "completed" ? `✓ ${i.topic}: ${i.resultSummary ?? ""}` : `✗ ${i.topic}: ${i.error ?? "failed"}`,
+  );
+  await tg.sendMessage(chatId, `All ${items.length} posts done:\n\n${lines.join("\n")}`).catch(() => {});
+}
+
 export async function drainQueue(queue: Queue, config: Config, cwd: string, tg: TgClientLike): Promise<boolean> {
   const item = queue.next();
   if (!item) return false;
 
+  const batchId = item.batchId;
+  const siblingsAtStart = batchId ? queue.list().filter((i) => i.batchId === batchId) : undefined;
+  const isFirstInBatch = siblingsAtStart?.filter((i) => i.id !== item.id).every((i) => i.status === "pending") ?? false;
+
   try {
-    await tg.sendMessage(item.chatId, "⏳ Generating post…");
+    if (batchId) {
+      if (isFirstInBatch) {
+        await tg.sendMessage(item.chatId, `⏳ Generating posts (${siblingsAtStart!.length})…`).catch(() => {});
+      }
+    } else {
+      await tg.sendMessage(item.chatId, "⏳ Generating post…");
+    }
+
     const { dir, variants } = await generatePost(config, cwd, item.imagePath, item.topic);
-    queue.complete(item.id);
-    await tg.sendMessage(item.chatId, `Saved to ${dir}\n\n${variants[0] ?? ""}`);
+
+    if (batchId) {
+      queue.complete(item.id, dir);
+      await maybeSendBatchSummary(queue, batchId, item.chatId, tg);
+    } else {
+      queue.complete(item.id);
+      await tg.sendMessage(item.chatId, `Saved to ${dir}\n\n${variants[0] ?? ""}`);
+    }
   } catch (err) {
     const errorText = err instanceof Error ? err.message : String(err);
     queue.fail(item.id, errorText);
-    await tg.sendMessage(item.chatId, `❌ ${errorText}`).catch(() => {});
+
+    if (batchId) {
+      await maybeSendBatchSummary(queue, batchId, item.chatId, tg);
+    } else {
+      await tg.sendMessage(item.chatId, `❌ ${errorText}`).catch(() => {});
+    }
   } finally {
     rmSync(item.imagePath, { force: true });
   }

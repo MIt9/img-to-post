@@ -29,6 +29,8 @@ export interface QueueItem {
   status: QueueStatus;
   createdAt: string;
   error?: string;
+  batchId?: string;
+  resultSummary?: string;
 }
 
 export interface ProviderResult {

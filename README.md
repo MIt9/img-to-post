@@ -46,7 +46,9 @@ Building from source instead (any platform Bun supports): see
    them, write to disk.
 2. **Topic routing** — pick a prompt/topic for the incoming image. If the user
    sends a caption matching a topic key (`/tech`, `/ai-news`) use that topic;
-   otherwise use `default`.
+   otherwise use `default`. Caption `/all` instead fans out to *every*
+   configured topic from the same photo — one download, one queue item per
+   topic, one combined Telegram reply when the whole batch finishes.
 3. **AI invocation** — run the configured shell command for the chosen
    provider, passing the image path and prompt. Capture stdout as the post.
 4. **Save** — create `<cwd>/posts/YYYY-MM-DD_<slug>/`, copy the image as

@@ -53,7 +53,7 @@ export class Queue {
     if (reclaimed) this.persist();
   }
 
-  add(input: { chatId: number; imagePath: string; topic: string }): QueueItem {
+  add(input: { chatId: number; imagePath: string; topic: string; batchId?: string }): QueueItem {
     this.reload();
     const item: QueueItem = {
       id: nextId(),
@@ -62,6 +62,7 @@ export class Queue {
       topic: input.topic,
       status: "pending",
       createdAt: new Date().toISOString(),
+      batchId: input.batchId,
     };
     this.items.push(item);
     this.persist();
@@ -86,11 +87,12 @@ export class Queue {
     return this.items.find((i) => i.id === id);
   }
 
-  complete(id: string): void {
+  complete(id: string, resultSummary?: string): void {
     this.reload();
     const item = this.find(id);
     if (!item) return;
     item.status = "completed";
+    item.resultSummary = resultSummary;
     this.persist();
   }
 
