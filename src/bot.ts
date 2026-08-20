@@ -89,7 +89,11 @@ export async function handleUpdate(
     return;
   }
 
-  const isAllTopics = /^\/all(\s|$)/i.test(message.caption?.trim() ?? "");
+  const captionText = message.caption?.trim() ?? "";
+  const match = captionText.match(/^\/(\S+)/);
+  const matchedKey = match?.[1];
+  const isSpecificTopic = matchedKey !== undefined && matchedKey !== "all" && Object.hasOwn(config.topics, matchedKey);
+  const isAllTopics = !isSpecificTopic;
   try {
     const downloadsDir = join(cwd, DOWNLOADS_DIR_NAME);
     if (!existsSync(downloadsDir)) mkdirSync(downloadsDir, { recursive: true });

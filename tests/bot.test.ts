@@ -66,7 +66,7 @@ test("a photo update is queued immediately, then processed by drainQueue", async
 
   const update: TgUpdate = {
     update_id: 1,
-    message: { chat: { id: 555 }, photo: [{ file_id: "small" }, { file_id: "big" }] },
+    message: { chat: { id: 555 }, caption: "/tech", photo: [{ file_id: "small" }, { file_id: "big" }] },
   };
 
   await handleUpdate(update, config, cwd, tg, queue);
@@ -212,7 +212,7 @@ test("AI failure during processing replies with the error and saves no folder", 
 
   const update: TgUpdate = {
     update_id: 8,
-    message: { chat: { id: 9 }, photo: [{ file_id: "p1" }] },
+    message: { chat: { id: 9 }, caption: "/tech", photo: [{ file_id: "p1" }] },
   };
 
   await handleUpdate(update, config, cwd, tg, queue);
@@ -281,7 +281,7 @@ test("queued position accounts for an item currently processing, not just pendin
   const tg = fakeTg();
 
   await handleUpdate(
-    { update_id: 1, message: { chat: { id: 2 }, photo: [{ file_id: "p1" }] } },
+    { update_id: 1, message: { chat: { id: 2 }, caption: "/tech", photo: [{ file_id: "p1" }] } },
     config,
     cwd,
     tg,
@@ -299,14 +299,14 @@ test("sending 2 images back-to-back queues both and processes them strictly sequ
   const queue = newQueue();
 
   await handleUpdate(
-    { update_id: 1, message: { chat: { id: 1 }, photo: [{ file_id: "p1" }] } },
+    { update_id: 1, message: { chat: { id: 1 }, caption: "/tech", photo: [{ file_id: "p1" }] } },
     config,
     cwd,
     tg,
     queue,
   );
   await handleUpdate(
-    { update_id: 2, message: { chat: { id: 2 }, photo: [{ file_id: "p2" }] } },
+    { update_id: 2, message: { chat: { id: 2 }, caption: "/tech", photo: [{ file_id: "p2" }] } },
     config,
     cwd,
     tg,
@@ -360,7 +360,7 @@ test("restart resumes the queue and offset without reprocessing or duplicate rep
   const firstRunTg = fakeTg();
   const firstQueue = new Queue(queuePath);
   await handleUpdate(
-    { update_id: 1, message: { chat: { id: 1 }, photo: [{ file_id: "p1" }] } },
+    { update_id: 1, message: { chat: { id: 1 }, caption: "/tech", photo: [{ file_id: "p1" }] } },
     config,
     cwd,
     firstRunTg,
