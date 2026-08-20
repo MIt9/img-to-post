@@ -39,4 +39,4 @@ queue.json
 posts/
 .img-to-post-downloads/
 *.log
-img-to-post
+/img-to-post
