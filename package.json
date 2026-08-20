@@ -1,6 +1,6 @@
 {
   "name": "img-to-post",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "module": "src/index.ts",
   "type": "module",
   "private": true,

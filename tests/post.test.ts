@@ -52,10 +52,10 @@ test("variants: 3 produces exactly 3 post files from 3 separate subprocess calls
 
   const dir = join(cwd, "posts", `${formatFolderDate()}_multi-variant-post`);
   expect(existsSync(join(dir, "meme.jpg"))).toBe(true);
-  expect(readFileSync(join(dir, "post-1.md"), "utf-8").trim()).toBe("call number 1");
-  expect(readFileSync(join(dir, "post-2.md"), "utf-8").trim()).toBe("call number 2");
-  expect(readFileSync(join(dir, "post-3.md"), "utf-8").trim()).toBe("call number 3");
-  expect(existsSync(join(dir, "post-4.md"))).toBe(false);
+  expect(readFileSync(join(dir, "post-tech-1.md"), "utf-8").trim()).toBe("call number 1");
+  expect(readFileSync(join(dir, "post-tech-2.md"), "utf-8").trim()).toBe("call number 2");
+  expect(readFileSync(join(dir, "post-tech-3.md"), "utf-8").trim()).toBe("call number 3");
+  expect(existsSync(join(dir, "post-tech-4.md"))).toBe(false);
 });
 
 test("no variants field (default 1) writes a single post-1.md", async () => {
@@ -67,7 +67,7 @@ test("no variants field (default 1) writes a single post-1.md", async () => {
   await postCommand(config, cwd, imagePath, "tech");
 
   const dir = join(cwd, "posts", `${formatFolderDate()}_default-variant`);
-  expect(readFileSync(join(dir, "post-1.md"), "utf-8").trim()).toBe("only call");
+  expect(readFileSync(join(dir, "post-tech.md"), "utf-8").trim()).toBe("only call");
   expect(existsSync(join(dir, "post-2.md"))).toBe(false);
 });
 

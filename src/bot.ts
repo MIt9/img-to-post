@@ -105,11 +105,8 @@ export async function handleUpdate(
       const topicKeys = Object.keys(config.topics);
       const batchId = randomUUID();
       for (const topicKey of topicKeys) {
-        const copyPath = `${basePath.slice(0, -extname(basePath).length)}-${topicKey}${extname(basePath)}`;
-        copyFileSync(basePath, copyPath);
-        queue.add({ chatId, imagePath: copyPath, topic: topicKey, batchId });
+        queue.add({ chatId, imagePath: basePath, topic: topicKey, batchId });
       }
-      rmSync(basePath, { force: true });
       console.log(`[chat ${chatId}] queued ${topicKeys.length} posts (all topics), batch ${batchId}`);
       await tg.sendMessage(chatId, `📥 Queued ${topicKeys.length} posts (all topics)`);
     } else {
@@ -130,10 +127,11 @@ async function maybeSendBatchSummary(queue: Queue, batchId: string, chatId: numb
   const items = queue.list().filter((i) => i.batchId === batchId);
   const allDone = items.every((i) => i.status === "completed" || i.status === "failed");
   if (!allDone) return;
+  const targetDir = items.find((i) => i.targetDir)?.targetDir ?? items.find((i) => i.resultSummary)?.resultSummary ?? "";
   const lines = items.map((i) =>
-    i.status === "completed" ? `✓ ${i.topic}: ${i.resultSummary ?? ""}` : `✗ ${i.topic}: ${i.error ?? "failed"}`,
+    i.status === "completed" ? `✓ ${i.topic}` : `✗ ${i.topic}: ${i.error ?? "failed"}`,
   );
-  await tg.sendMessage(chatId, `All ${items.length} posts done:\n\n${lines.join("\n")}`).catch(() => {});
+  await tg.sendMessage(chatId, `All ${items.length} posts saved to ${targetDir}:\n\n${lines.join("\n")}`).catch(() => {});
 }
 
 export async function drainQueue(queue: Queue, config: Config, cwd: string, tg: TgClientLike): Promise<boolean> {
@@ -155,14 +153,19 @@ export async function drainQueue(queue: Queue, config: Config, cwd: string, tg: 
       await tg.sendMessage(item.chatId, "⏳ Generating post…");
     }
 
-    const { dir, variants } = await generatePost(config, cwd, item.imagePath, item.topic);
+    const existingTargetDir = batchId
+      ? queue.list().find((i) => i.batchId === batchId && (i.targetDir || i.resultSummary))?.targetDir ??
+        queue.list().find((i) => i.batchId === batchId && i.resultSummary)?.resultSummary
+      : undefined;
+
+    const { dir, variants } = await generatePost(config, cwd, item.imagePath, item.topic, existingTargetDir);
     console.log(`[chat ${item.chatId}] done — saved to ${dir}`);
 
     if (batchId) {
-      queue.complete(item.id, dir);
+      queue.complete(item.id, dir, dir);
       await maybeSendBatchSummary(queue, batchId, item.chatId, tg);
     } else {
-      queue.complete(item.id);
+      queue.complete(item.id, dir, dir);
       await tg.sendMessage(item.chatId, `Saved to ${dir}\n\n${variants[0] ?? ""}`);
     }
   } catch (err) {
@@ -176,7 +179,12 @@ export async function drainQueue(queue: Queue, config: Config, cwd: string, tg: 
       await tg.sendMessage(item.chatId, `❌ ${errorText}`).catch(() => {});
     }
   } finally {
-    rmSync(item.imagePath, { force: true });
+    const remainingInBatch = batchId
+      ? queue.list().filter((i) => i.batchId === batchId && i.id !== item.id && (i.status === "pending" || i.status === "processing"))
+      : [];
+    if (remainingInBatch.length === 0) {
+      rmSync(item.imagePath, { force: true });
+    }
   }
   return true;
 }

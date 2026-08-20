@@ -82,7 +82,7 @@ test("a photo update is queued immediately, then processed by drainQueue", async
 
   const dir = join(cwd, "posts", `${formatFolderDate()}_bot-photo-post`);
   expect(existsSync(join(dir, "meme.jpg"))).toBe(true);
-  expect(readFileSync(join(dir, "post-1.md"), "utf-8").trim()).toBe("generated text");
+  expect(readFileSync(join(dir, "post-tech.md"), "utf-8").trim()).toBe("generated text");
 
   expect(tg.sent).toHaveLength(3);
   expect(tg.sent[1]).toEqual({ chatId: 555, text: "⏳ Generating post…" });
@@ -136,7 +136,7 @@ test("a caption matching a configured topic key routes to that topic", async () 
   await drainQueue(queue, config, cwd, tg);
 
   const dir = join(cwd, "posts", `${formatFolderDate()}_routed-post`);
-  expect(readFileSync(join(dir, "post-1.md"), "utf-8")).toContain("LIFE PROMPT");
+  expect(readFileSync(join(dir, "post-life.md"), "utf-8")).toContain("LIFE PROMPT");
 });
 
 test("an unmatched caption falls back to defaultTopic", async () => {
@@ -406,7 +406,7 @@ test("a /all caption fans out one download into one queue item per configured to
   const items = queue.list();
   expect(items).toHaveLength(2);
   expect(items.map((i) => i.topic).sort()).toEqual(["life", "tech"]);
-  expect(new Set(items.map((i) => i.imagePath)).size).toBe(2);
+  expect(new Set(items.map((i) => i.imagePath)).size).toBe(1);
   const batchId = items[0]?.batchId;
   expect(batchId).toBeTruthy();
   expect(items.every((i) => i.batchId === batchId)).toBe(true);
@@ -431,17 +431,19 @@ test("/all fan-out cleans up the shared base download after making per-topic cop
   const downloadsDir = join(cwd, ".img-to-post-downloads");
   const { readdirSync } = await import("node:fs");
   const files = readdirSync(downloadsDir);
-  // exactly one file per queue item's imagePath, no extra leftover base download
-  expect(files).toHaveLength(2);
+  // single shared download file
+  expect(files).toHaveLength(1);
   expect(queue.list().every((i) => files.includes(i.imagePath.split("/").pop()!))).toBe(true);
 });
 
 test("draining a batch sends one progress message, then one combined summary (mixed success/failure)", async () => {
   const script = fixture(
-    `#!/bin/sh\ncase "$1" in *life*) echo "boom" >&2; exit 1 ;; *) echo "SLUG: ok-post"; echo ""; echo "text" ;; esac\n`,
+    `#!/bin/sh\ncase "$IMG2POST_PROMPT" in *LIFE*) echo "boom" >&2; exit 1 ;; *) echo "SLUG: ok-post"; echo ""; echo "text" ;; esac\n`,
   );
+  writeFileSync(join(configDir, "life-prompt.txt"), "LIFE");
   cwd = mkdtempSync(join(tmpdir(), "img2post-bot-cwd-"));
   const config = baseConfig(script);
+  config.topics.life = { description: "life posts", promptFile: "life-prompt.txt" };
   const tg = fakeTg();
   const queue = newQueue();
 
@@ -460,8 +462,8 @@ test("draining a batch sends one progress message, then one combined summary (mi
   await drainQueue(queue, config, cwd, tg);
   expect(tg.sent).toHaveLength(2);
   const summary = tg.sent[1]!.text;
-  expect(summary).toContain("2 posts done");
-  expect(summary).toMatch(/✓ tech: .*posts/);
+  expect(summary).toContain("2 posts saved to");
+  expect(summary).toContain("✓ tech");
   expect(summary).toContain("✗ life: boom");
 
   expect(queue.list().find((i) => i.topic === "tech")?.status).toBe("completed");

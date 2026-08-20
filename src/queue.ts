@@ -87,12 +87,13 @@ export class Queue {
     return this.items.find((i) => i.id === id);
   }
 
-  complete(id: string, resultSummary?: string): void {
+  complete(id: string, resultSummary?: string, targetDir?: string): void {
     this.reload();
     const item = this.find(id);
     if (!item) return;
     item.status = "completed";
     item.resultSummary = resultSummary;
+    if (targetDir) item.targetDir = targetDir;
     this.persist();
   }
 

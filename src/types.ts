@@ -31,6 +31,7 @@ export interface QueueItem {
   error?: string;
   batchId?: string;
   resultSummary?: string;
+  targetDir?: string;
 }
 
 export interface ProviderResult {

@@ -10,6 +10,7 @@ export async function generatePost(
   cwd: string,
   imagePath: string,
   topicKey?: string,
+  targetDir?: string,
 ): Promise<{ dir: string; variants: string[] }> {
   const key = topicKey ?? config.defaultTopic;
   const topic = config.topics[key];
@@ -38,7 +39,7 @@ export async function generatePost(
   const slug = deriveSlug(rawTexts[0] ?? "", imagePath);
   const variants = rawTexts.map((rawText) => rawText.replace(/^SLUG:.*(\r?\n)+/i, ""));
   const date = formatFolderDate();
-  const dir = writePost({ cwd, imagePath, slug, date, variants });
+  const dir = writePost({ cwd, imagePath, slug, date, variants, topic: key, targetDir });
 
   return { dir, variants };
 }
