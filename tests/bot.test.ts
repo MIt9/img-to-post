@@ -1,5 +1,6 @@
 import { test, expect, afterEach } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync, chmodSync } from "node:fs";
+import { formatFolderDate } from "../src/output.ts";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Config } from "../src/types.ts";
@@ -79,7 +80,7 @@ test("a photo update is queued immediately, then processed by drainQueue", async
 
   await drainQueue(queue, config, cwd, tg);
 
-  const dir = join(cwd, "posts", `${new Date().toISOString().slice(0, 10)}_bot-photo-post`);
+  const dir = join(cwd, "posts", `${formatFolderDate()}_bot-photo-post`);
   expect(existsSync(join(dir, "meme.jpg"))).toBe(true);
   expect(readFileSync(join(dir, "post-1.md"), "utf-8").trim()).toBe("generated text");
 
@@ -110,7 +111,7 @@ test("a document update maps mime type to file extension", async () => {
 
   await drainQueue(queue, config, cwd, tg);
 
-  const dir = join(cwd, "posts", `${new Date().toISOString().slice(0, 10)}_bot-doc-post`);
+  const dir = join(cwd, "posts", `${formatFolderDate()}_bot-doc-post`);
   expect(existsSync(dir)).toBe(true);
 });
 
@@ -134,7 +135,7 @@ test("a caption matching a configured topic key routes to that topic", async () 
   expect(queue.list()[0]?.topic).toBe("life");
   await drainQueue(queue, config, cwd, tg);
 
-  const dir = join(cwd, "posts", `${new Date().toISOString().slice(0, 10)}_routed-post`);
+  const dir = join(cwd, "posts", `${formatFolderDate()}_routed-post`);
   expect(readFileSync(join(dir, "post-1.md"), "utf-8")).toContain("LIFE PROMPT");
 });
 
@@ -154,7 +155,7 @@ test("an unmatched caption falls back to defaultTopic", async () => {
   expect(queue.list()[0]?.topic).toBe("tech");
   await drainQueue(queue, config, cwd, tg);
 
-  const dir = join(cwd, "posts", `${new Date().toISOString().slice(0, 10)}_default-routed`);
+  const dir = join(cwd, "posts", `${formatFolderDate()}_default-routed`);
   expect(existsSync(dir)).toBe(true);
 });
 

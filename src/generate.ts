@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { Config } from "./types.ts";
 import { runProvider } from "./ai.ts";
 import { deriveSlug } from "./slug.ts";
-import { writePost } from "./output.ts";
+import { writePost, formatFolderDate } from "./output.ts";
 
 export async function generatePost(
   config: Config,
@@ -37,7 +37,7 @@ export async function generatePost(
 
   const slug = deriveSlug(rawTexts[0] ?? "", imagePath);
   const variants = rawTexts.map((rawText) => rawText.replace(/^SLUG:.*(\r?\n)+/i, ""));
-  const date = new Date().toISOString().slice(0, 10);
+  const date = formatFolderDate();
   const dir = writePost({ cwd, imagePath, slug, date, variants });
 
   return { dir, variants };

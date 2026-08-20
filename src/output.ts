@@ -1,6 +1,11 @@
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { extname, join } from "node:path";
 
+export function formatFolderDate(d = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}`;
+}
+
 export function writePost(input: {
   cwd: string;
   imagePath: string;
