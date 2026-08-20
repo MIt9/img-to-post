@@ -8,7 +8,10 @@ Commands:
   init                    Scaffold img-to-post.config.json + prompts/ in the current directory
   post <image> [topic]    Generate a post from a local image
   topics                  List configured topics
-  queue                   Inspect/manage the processing queue (not implemented yet)
+  queue list              List queued items and their status
+  queue pause <id>        Prevent a pending item from being picked up
+  queue resume <id>       Make a paused item eligible again
+  queue cancel <id>       Remove an item from the queue entirely
 
 Options:
   --config <path>         Path to config file (default: ./img-to-post.config.json)

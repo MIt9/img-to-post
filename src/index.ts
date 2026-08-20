@@ -5,6 +5,7 @@ import { loadConfig } from "./config.ts";
 import { initCommand } from "./commands/init.ts";
 import { topicsCommand } from "./commands/topics.ts";
 import { postCommand } from "./commands/post.ts";
+import { queueCommand } from "./commands/queue.ts";
 import { runBot } from "./bot.ts";
 import { TelegramClient } from "./telegram.ts";
 
@@ -56,8 +57,12 @@ async function main(): Promise<void> {
       await runBot(config, process.cwd(), tg);
       return;
     }
-    case "queue":
-      fail(`"${command}" is not implemented yet.`);
+    case "queue": {
+      const [action, id] = positionals;
+      if (!action) fail("usage: img-to-post queue list|pause|resume|cancel <id>");
+      queueCommand(process.cwd(), action, id);
+      return;
+    }
     default:
       fail(`Unknown command: "${command}". Run "img-to-post --help" for usage.`);
   }
