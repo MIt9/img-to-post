@@ -20,10 +20,12 @@ curl -fsSL https://raw.githubusercontent.com/MIt9/img-to-post/main/install.sh | 
 ```
 
 Downloads the latest universal binary (arm64+x64) to `~/.local/bin/img-to-post`
-and tells you if that's not already on your `PATH`. Then:
+and tells you if that's not already on your `PATH`. Then run the setup wizard —
+it walks you through everything (creating a Telegram bot, pasting the token,
+picking an AI command) with step-by-step instructions, no manual JSON editing:
 
 ```
-img-to-post init
+img-to-post setup
 ```
 
 Prefer to do it by hand? Download the binary from the
@@ -65,7 +67,8 @@ Building from source instead (any platform Bun supports): see
 
 ```
 img-to-post bot                     # run the Telegram polling loop (foreground)
-img-to-post init                    # scaffold img-to-post.config.json + prompts/
+img-to-post setup                   # interactive wizard: token, AI command, topic
+img-to-post init                    # non-interactive: scaffold config with placeholder values
 img-to-post post <image> [topic]    # one-shot: generate post from a local image
 img-to-post topics                  # list configured topics
 img-to-post queue list              # list queued items and their status
