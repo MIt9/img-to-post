@@ -85,29 +85,34 @@ export async function handleUpdate(
   }
 
   const topicKey = routeTopic(message.caption, config.topics, config.defaultTopic);
-  const downloadsDir = join(cwd, DOWNLOADS_DIR_NAME);
-  if (!existsSync(downloadsDir)) mkdirSync(downloadsDir, { recursive: true });
-  const imagePath = join(downloadsDir, nextDownloadName(ext));
-  await tg.downloadFile(fileId, imagePath);
+  try {
+    const downloadsDir = join(cwd, DOWNLOADS_DIR_NAME);
+    if (!existsSync(downloadsDir)) mkdirSync(downloadsDir, { recursive: true });
+    const imagePath = join(downloadsDir, nextDownloadName(ext));
+    await tg.downloadFile(fileId, imagePath);
 
-  queue.add({ chatId, imagePath, topic: topicKey });
-  const position = queue.list().filter((i) => i.status === "pending").length;
-  await tg.sendMessage(chatId, `📥 Queued (position ${position})`);
+    queue.add({ chatId, imagePath, topic: topicKey });
+    const position = queue.list().filter((i) => i.status === "pending" || i.status === "processing").length;
+    await tg.sendMessage(chatId, `📥 Queued (position ${position})`);
+  } catch (err) {
+    const errorText = err instanceof Error ? err.message : String(err);
+    await tg.sendMessage(chatId, `❌ ${errorText}`).catch(() => {});
+  }
 }
 
 export async function drainQueue(queue: Queue, config: Config, cwd: string, tg: TgClientLike): Promise<boolean> {
   const item = queue.next();
   if (!item) return false;
 
-  await tg.sendMessage(item.chatId, "⏳ Generating post…");
   try {
+    await tg.sendMessage(item.chatId, "⏳ Generating post…");
     const { dir, variants } = await generatePost(config, cwd, item.imagePath, item.topic);
     queue.complete(item.id);
     await tg.sendMessage(item.chatId, `Saved to ${dir}\n\n${variants[0] ?? ""}`);
   } catch (err) {
     const errorText = err instanceof Error ? err.message : String(err);
     queue.fail(item.id, errorText);
-    await tg.sendMessage(item.chatId, `❌ ${errorText}`);
+    await tg.sendMessage(item.chatId, `❌ ${errorText}`).catch(() => {});
   } finally {
     rmSync(item.imagePath, { force: true });
   }

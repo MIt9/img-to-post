@@ -115,14 +115,25 @@ test("getOffset/setOffset track the Telegram getUpdates offset", () => {
 test("queue and offset state survives being reloaded from a fresh Queue instance", () => {
   const path = queuePath();
   const original = new Queue(path);
-  const a = original.add({ chatId: 1, imagePath: "a", topic: "tech" });
+  original.add({ chatId: 1, imagePath: "a", topic: "tech" });
   original.add({ chatId: 2, imagePath: "b", topic: "tech" });
-  original.next();
   original.setOffset(7);
 
   const reloaded = new Queue(path);
 
   expect(reloaded.getOffset()).toBe(7);
   expect(reloaded.list()).toHaveLength(2);
-  expect(reloaded.list().find((i) => i.id === a.id)?.status).toBe("processing");
+});
+
+test("a crash-abandoned processing item is reclaimed as pending on reload, not stuck forever", () => {
+  const path = queuePath();
+  const original = new Queue(path);
+  const a = original.add({ chatId: 1, imagePath: "a", topic: "tech" });
+  original.next();
+  expect(original.list().find((i) => i.id === a.id)?.status).toBe("processing");
+
+  const reloaded = new Queue(path);
+
+  expect(reloaded.list().find((i) => i.id === a.id)?.status).toBe("pending");
+  expect(reloaded.next()?.id).toBe(a.id);
 });

@@ -21,6 +21,18 @@ export class Queue {
       const data = JSON.parse(readFileSync(path, "utf-8")) as QueueFile;
       this.items = data.items ?? [];
       this.offset = data.offset ?? 0;
+
+      // A fresh process starting up owns the only worker for this queue file (per-cwd,
+      // single-instance — see ticket 05's explicit no-concurrent-instances scope). Any
+      // item still "processing" was abandoned mid-generation by a crashed prior run.
+      let reclaimed = false;
+      for (const item of this.items) {
+        if (item.status === "processing") {
+          item.status = "pending";
+          reclaimed = true;
+        }
+      }
+      if (reclaimed) this.persist();
     }
   }
 

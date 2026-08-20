@@ -225,6 +225,72 @@ test("AI failure during processing replies with the error and saves no folder", 
   expect(queue.list()[0]?.error).toBe("boom");
 });
 
+test("a download failure replies with an error instead of crashing and does not enqueue", async () => {
+  const script = fixture(`#!/bin/sh\necho unused\n`);
+  cwd = mkdtempSync(join(tmpdir(), "img2post-bot-cwd-"));
+  const config = baseConfig(script);
+  const queue = newQueue();
+  const sent: { chatId: number; text: string }[] = [];
+  const tg = {
+    async sendMessage(chatId: number, text: string) {
+      sent.push({ chatId, text });
+    },
+    async downloadFile() {
+      throw new Error("network blip");
+    },
+  };
+
+  const update: TgUpdate = {
+    update_id: 1,
+    message: { chat: { id: 9 }, photo: [{ file_id: "p1" }] },
+  };
+
+  await handleUpdate(update, config, cwd, tg, queue);
+
+  expect(queue.list()).toHaveLength(0);
+  expect(sent).toEqual([{ chatId: 9, text: "❌ network blip" }]);
+});
+
+test("a send failure inside drainQueue does not crash and leaves the item failed, not stuck processing", async () => {
+  const script = fixture(`#!/bin/sh\necho "SLUG: x"\necho ""\necho "text"\n`);
+  cwd = mkdtempSync(join(tmpdir(), "img2post-bot-cwd-"));
+  const config = baseConfig(script);
+  const queue = newQueue();
+  const item = queue.add({ chatId: 9, imagePath: join(cwd, "does-not-matter.jpg"), topic: "tech" });
+  writeFileSync(item.imagePath, "bytes");
+  const tg = {
+    async sendMessage() {
+      throw new Error("chat blocked the bot");
+    },
+    async downloadFile() {},
+  };
+
+  const processed = await drainQueue(queue, config, cwd, tg);
+
+  expect(processed).toBe(true);
+  expect(queue.list()[0]?.status).toBe("failed");
+});
+
+test("queued position accounts for an item currently processing, not just pending ones", async () => {
+  const script = fixture(`#!/bin/sh\nsleep 5\n`);
+  cwd = mkdtempSync(join(tmpdir(), "img2post-bot-cwd-"));
+  const config = baseConfig(script);
+  const queue = newQueue();
+  queue.add({ chatId: 1, imagePath: "a", topic: "tech" });
+  queue.next(); // now "processing"
+  const tg = fakeTg();
+
+  await handleUpdate(
+    { update_id: 1, message: { chat: { id: 2 }, photo: [{ file_id: "p1" }] } },
+    config,
+    cwd,
+    tg,
+    queue,
+  );
+
+  expect(tg.sent).toEqual([{ chatId: 2, text: "📥 Queued (position 2)" }]);
+});
+
 test("sending 2 images back-to-back queues both and processes them strictly sequentially", async () => {
   const script = fixture(`#!/bin/sh\necho "SLUG: seq-$1"\necho ""\necho "text-$1"\n`);
   cwd = mkdtempSync(join(tmpdir(), "img2post-bot-cwd-"));
