@@ -23,19 +23,30 @@ scripts) via shell commands defined in the config.
 3. **AI invocation** — run the configured shell command for the chosen
    provider, passing the image path and prompt. Capture stdout as the post.
 4. **Save** — create `<cwd>/posts/YYYY-MM-DD_<slug>/`, copy the image as
-   `meme.<ext>`, write the post as `<topic>.md` (or `post.md`), and reply to the
-   Telegram chat with the saved paths + post text.
-5. **Config** — read `img-to-post.config.json` (or `.env`) from the working
-   directory; also support a global fallback in `~/.config/img-to-post/`.
+   `meme.<ext>`, write each generated variant as `post-1.md`, `post-2.md`, …
+   (a topic's `variants` config controls the count, default 1 — always N
+   *separate* AI calls, never one call parsed into pieces), and reply to the
+   Telegram chat with the saved paths + the first variant's text.
+5. **Config** — read `img-to-post.config.json` from the working directory
+   (or `--config <path>` / `IMG2POST_CONFIG`). No `.env` support and no
+   global fallback directory — config is scoped to the invoking cwd only.
+6. **Queue** — incoming Telegram images are appended to a queue persisted as
+   `queue.json` in cwd, drained one item at a time by a single sequential
+   worker. Restarting resumes exactly where it left off (queue state + the
+   Telegram `getUpdates` offset both persist to disk) — no reprocessing, no
+   duplicate replies. `img-to-post queue` manages it from a second terminal.
 
 ## CLI surface
 
 ```
-img-to-post bot                 # run the Telegram polling loop (foreground)
-img-to-post init                # scaffold img-to-post.config.json + prompts/
-img-to-post post <image> [topic]  # one-shot: generate post from a local image
-img-to-post topics              # list configured topics
-img-to-post --once <image>      # alias of `post` for scripting
+img-to-post bot                     # run the Telegram polling loop (foreground)
+img-to-post init                    # scaffold img-to-post.config.json + prompts/
+img-to-post post <image> [topic]    # one-shot: generate post from a local image
+img-to-post topics                  # list configured topics
+img-to-post queue list              # list queued items and their status
+img-to-post queue pause <id>        # prevent a pending item from being picked up
+img-to-post queue resume <id>       # make a paused item eligible again
+img-to-post queue cancel <id>       # remove an item from the queue entirely
 ```
 
 ## Config schema (`img-to-post.config.json`)
@@ -64,13 +75,13 @@ img-to-post --once <image>      # alias of `post` for scripting
     "tech": {
       "description": "meme → engineering post",
       "promptFile": "prompts/tech.txt",     // path relative to config file
-      "outFile": "post.md",                  // filename written in the folder
+      "variants": 1,                         // number of separate AI calls -> post-1.md, post-2.md, ...
       "ai": "mycli"                          // optional per-topic provider
     },
     "ai-news": {
       "description": "image → AI news writeup",
       "promptFile": "prompts/ai-news.txt",
-      "outFile": "post.md",
+      "variants": 1,
       "ai": "mycli"
     }
   }
@@ -105,29 +116,37 @@ subprocess as an alternative to positional args (both are provided).
 
 1. Connect, `getMe` → cache username.
 2. Long-poll `getUpdates` with `timeout=25`, `allowed_updates=["message"]`.
+   Offset persists to `queue.json` after each update, not just in memory.
 3. On message with photo/document:
-   - Download to `<tmp>/img2post/<chatId>/image-<ts>.<ext>`.
+   - Download to `<cwd>/.img-to-post-downloads/` (gitignored).
    - Topic = caption match (`/topic-key`) if present, else `defaultTopic`.
-   - Reply `⏳ Generating post…` then run AI.
-   - On success: reply `📁 <abs paths>\n\n<post>`.
-   - On failure: reply `❌ <error>`.
-4. `/start` → friendly usage message. Unknown `/cmd` → list topics.
-5. `/stop` → graceful shutdown.
-6. No duplicate-processing guard required but `getUpdates` offset must persist
-   in memory across the run.
+   - Enqueue and reply immediately: `📥 Queued (position N)`.
+4. A single sequential worker drains the queue, one item at a time:
+   - Reply `⏳ Generating post…`, then run the AI (once per variant).
+   - On success: reply `Saved to <dir>\n\n<first variant text>`.
+   - On failure: reply `❌ <error>`; nothing is saved.
+5. `/start` → friendly usage message. Unknown `/cmd` (no attachment) → list topics.
+6. `/stop` → graceful shutdown.
+7. Restarting resumes from the persisted queue + offset — no reprocessing,
+   no duplicate replies for updates already consumed. A crash-abandoned
+   in-flight item is reclaimed back to pending on the next startup.
+   Same-cwd concurrent `bot` processes are unsupported (no file locking);
+   different working directories are fully isolated instances.
 
 ## Output layout
 
 ```
 <working-dir>/
   img-to-post.config.json
+  queue.json                     # persisted queue + Telegram offset (bot mode)
   prompts/
     tech.txt
     ai-news.txt
   posts/
     2026-08-20_rsc-learning-curve/
       meme.jpg
-      post.md
+      post-1.md
+      post-2.md                  # one file per configured variant
 ```
 
 Folder name: `YYYY-MM-DD_<slug>`. Slug is derived from the AI output's first
@@ -137,23 +156,34 @@ exists, append `-2`, `-3`, …
 
 ## Tech constraints
 
-- Runtime: **Bun 1.x** (single-file build via `bun build src/index.ts --compile`).
+- Runtime: **Bun 1.x** (single-file build via `bun run build`, i.e.
+  `bun build src/index.ts --compile --outfile img-to-post` — produces a
+  standalone executable, no `bun`/`node_modules` needed on the target).
 - TypeScript, strict, `bun run typecheck` (tsc --noEmit) must pass with 0 errors.
-- All imports use `.js` extensions (ESM).
-- No bundling of AI SDKs — only `node:readline`, `node:child_process` (or
-  `Bun.spawn`), `node:fs`, Telegram long-poll via `fetch`.
+- Local imports use an explicit `.ts` extension (Bun resolves this natively;
+  deliberate deviation from a Node-oriented `.js`-extension convention).
+- Zero runtime dependencies — no bundled AI SDK, no CLI-parsing library
+  (`node:util`'s `parseArgs` covers the flag surface). Only `node:*`
+  builtins, global `fetch` (Telegram long-poll), and `Bun.spawn` (AI
+  subprocess invocation).
 - Image type detection from extension: jpg/jpeg/png/gif/webp → mime map.
 - Prompt files may contain the full agent prompt (e.g. the "Senior Frontend
   Engineer content agent" prompt) verbatim.
 
-## Tests to include
+## Tests
 
-- Config load + env override precedence.
-- Topic routing (caption `/tech`, unknown caption → default).
-- Slug derivation from AI first line / SLUG: prefix / filename fallback.
-- Subprocess call: correct argv, stdout capture, timeout, non-zero exit.
-- Telegram update parsing: photo, document, caption, /start, unknown /cmd.
-- End-to-end (mocked): image in → folder created with image + post + reply.
+73 tests across 10 files, `bun test`. Covers: config load + validation + env
+override precedence; topic routing (caption `/tech`, unknown → default);
+slug derivation (first line / `SLUG:` prefix / filename fallback); subprocess
+invocation (argv, stdout capture, timeout, stdin mode, non-zero exit);
+multi-variant generation (N separate calls, all-or-nothing on failure);
+output writer (folder-collision `-2`/`-3` suffixing); Telegram update
+parsing (photo, document, caption, `/start`, `/stop`, unknown `/cmd`) against
+a mocked Bot API; the queue (add/list/next/complete/fail/pause/resume/cancel,
+crash-abandoned item reclaim, reload-before-every-operation so a running
+`bot` and a `queue` CLI invocation don't clobber each other); the `queue`
+CLI command; and an end-to-end path (image in → folder created with image +
+post(s) + reply) via fixture AI shell scripts, no live network calls.
 
 ## Non-goals
 
