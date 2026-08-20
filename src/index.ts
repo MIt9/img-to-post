@@ -5,6 +5,8 @@ import { loadConfig } from "./config.ts";
 import { initCommand } from "./commands/init.ts";
 import { topicsCommand } from "./commands/topics.ts";
 import { postCommand } from "./commands/post.ts";
+import { runBot } from "./bot.ts";
+import { TelegramClient } from "./telegram.ts";
 
 function fail(message: string): never {
   console.error(message);
@@ -45,7 +47,12 @@ async function main(): Promise<void> {
       await postCommand(loadConfig(configPath), process.cwd(), imagePath, topic);
       return;
     }
-    case "bot":
+    case "bot": {
+      const config = loadConfig(configPath);
+      const tg = new TelegramClient(config.telegram.botToken);
+      await runBot(config, process.cwd(), tg);
+      return;
+    }
     case "queue":
       fail(`"${command}" is not implemented yet.`);
     default:

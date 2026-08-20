@@ -4,7 +4,7 @@ Usage:
   img-to-post <command> [options]
 
 Commands:
-  bot                     Run the Telegram long-poll bot (not implemented yet)
+  bot                     Run the Telegram long-poll bot
   init                    Scaffold img-to-post.config.json + prompts/ in the current directory
   post <image> [topic]    Generate a post from a local image
   topics                  List configured topics
