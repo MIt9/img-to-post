@@ -13,6 +13,21 @@ No AI is bundled. The tool is an **orchestrator**: it delegates content
 generation to external CLIs/AIs (e.g. `mycli`, `claude`, `openai`, custom
 scripts) via shell commands defined in the config.
 
+## Install (macOS, no Bun/git required)
+
+Download the universal binary from the
+[latest release](https://github.com/MIt9/img-to-post/releases/latest), then:
+
+```
+chmod +x img-to-post-macos
+xattr -d com.apple.quarantine img-to-post-macos   # macOS blocks unsigned downloads by default
+mv img-to-post-macos /usr/local/bin/img-to-post   # optional: put it on PATH
+img-to-post init
+```
+
+Building from source instead (any platform Bun supports): see
+[Tech constraints](#tech-constraints) below for the `bun run build` command.
+
 ## What the tool must do
 
 1. **Telegram bot** — long-poll `getUpdates`, accept photos/documents, download
