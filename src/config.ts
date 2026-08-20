@@ -39,6 +39,16 @@ export function loadConfig(explicitPath?: string): Config {
     );
   }
 
+  for (const [key, provider] of Object.entries(config.ai.providers)) {
+    const hasCommand = typeof provider?.command === "string" || Array.isArray(provider?.command);
+    const hasTimeout = typeof provider?.timeoutSec === "number" && Number.isFinite(provider.timeoutSec) && provider.timeoutSec > 0;
+    if (!hasCommand || !hasTimeout) {
+      throw new ConfigError(
+        `AI provider "${key}" needs a "command" (string or array) and a positive "timeoutSec": ${configPath}`,
+      );
+    }
+  }
+
   config.configDir = dirname(resolve(configPath));
 
   if (process.env.IMG2POST_TELEGRAM_BOT_TOKEN) {

@@ -20,9 +20,13 @@ export async function runProvider(
   }
 
   const timeoutMs = provider.timeoutSec * 1000;
-  const timeout = new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), timeoutMs));
+  let timer!: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<"timeout">((resolve) => {
+    timer = setTimeout(() => resolve("timeout"), timeoutMs);
+  });
 
   const outcome = await Promise.race([proc.exited, timeout]);
+  clearTimeout(timer);
 
   if (outcome === "timeout") {
     proc.kill();

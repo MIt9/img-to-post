@@ -25,8 +25,9 @@ export async function postCommand(config: Config, cwd: string, imagePath: string
     throw new Error(result.stderr.trim() || "AI provider exited with a non-zero status");
   }
 
-  const text = result.stdout.trim();
-  const slug = deriveSlug(text, imagePath);
+  const rawText = result.stdout.trim();
+  const slug = deriveSlug(rawText, imagePath);
+  const text = rawText.replace(/^SLUG:.*(\r?\n)+/i, "");
   const date = new Date().toISOString().slice(0, 10);
   const dir = writePost({ cwd, imagePath, slug, date, text });
 

@@ -3,7 +3,9 @@ import { dirname, join, resolve } from "node:path";
 import type { Config } from "../types.ts";
 import { resolveConfigPath } from "../config.ts";
 
-const STARTER_PROMPT = "Write a short, punchy engineering-focused post based on this image.\n";
+const STARTER_PROMPT =
+  "Start your response with a single line \"SLUG: a-few-kebab-case-words\" summarizing the post, then a blank line.\n" +
+  "Then write a short, punchy engineering-focused post based on this image.\n";
 
 export function initCommand(cwd: string, explicitConfigPath?: string): void {
   const configPath = resolve(cwd, resolveConfigPath(explicitConfigPath));
