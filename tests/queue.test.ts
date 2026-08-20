@@ -125,7 +125,7 @@ test("queue and offset state survives being reloaded from a fresh Queue instance
   expect(reloaded.list()).toHaveLength(2);
 });
 
-test("a crash-abandoned processing item is reclaimed as pending on reload, not stuck forever", () => {
+test("a crash-abandoned processing item is reclaimed as pending by reclaimStaleProcessing, not stuck forever", () => {
   const path = queuePath();
   const original = new Queue(path);
   const a = original.add({ chatId: 1, imagePath: "a", topic: "tech" });
@@ -133,7 +133,33 @@ test("a crash-abandoned processing item is reclaimed as pending on reload, not s
   expect(original.list().find((i) => i.id === a.id)?.status).toBe("processing");
 
   const reloaded = new Queue(path);
+  reloaded.reclaimStaleProcessing();
 
   expect(reloaded.list().find((i) => i.id === a.id)?.status).toBe("pending");
   expect(reloaded.next()?.id).toBe(a.id);
+});
+
+test("merely constructing or listing does not reclaim a genuinely in-flight processing item", () => {
+  const path = queuePath();
+  const original = new Queue(path);
+  const a = original.add({ chatId: 1, imagePath: "a", topic: "tech" });
+  original.next();
+
+  const secondInstance = new Queue(path);
+  expect(secondInstance.list().find((i) => i.id === a.id)?.status).toBe("processing");
+});
+
+test("a second Queue instance's write survives a long-lived instance's next persist (CLI vs. bot)", () => {
+  const path = queuePath();
+  const botQueue = new Queue(path);
+  const a = botQueue.add({ chatId: 1, imagePath: "a", topic: "tech" });
+
+  const cliQueue = new Queue(path);
+  cliQueue.pause(a.id);
+
+  botQueue.setOffset(5);
+
+  const reloaded = new Queue(path);
+  expect(reloaded.list().find((i) => i.id === a.id)?.status).toBe("paused");
+  expect(reloaded.getOffset()).toBe(5);
 });

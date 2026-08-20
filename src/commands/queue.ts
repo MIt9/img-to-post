@@ -18,12 +18,21 @@ export function queueCommand(cwd: string, action: string, id?: string): void {
 
   if (action === "pause" || action === "resume" || action === "cancel") {
     if (!id) throw new Error(`usage: img-to-post queue ${action} <id>`);
-    if (!queue.list().some((item) => item.id === id)) {
-      throw new Error(`No queue item with id "${id}".`);
+    const item = queue.list().find((i) => i.id === id);
+    if (!item) throw new Error(`No queue item with id "${id}".`);
+    if (action === "pause") {
+      if (item.status !== "pending") {
+        throw new Error(`Cannot pause "${id}": status is "${item.status}", not "pending".`);
+      }
+      queue.pause(id);
+    } else if (action === "resume") {
+      if (item.status !== "paused") {
+        throw new Error(`Cannot resume "${id}": status is "${item.status}", not "paused".`);
+      }
+      queue.resume(id);
+    } else {
+      queue.cancel(id);
     }
-    if (action === "pause") queue.pause(id);
-    else if (action === "resume") queue.resume(id);
-    else queue.cancel(id);
     return;
   }
 

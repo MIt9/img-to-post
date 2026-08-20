@@ -17,23 +17,20 @@ export class Queue {
   private offset = 0;
 
   constructor(private readonly path: string) {
-    if (existsSync(path)) {
-      const data = JSON.parse(readFileSync(path, "utf-8")) as QueueFile;
-      this.items = data.items ?? [];
-      this.offset = data.offset ?? 0;
+    this.reload();
+  }
 
-      // A fresh process starting up owns the only worker for this queue file (per-cwd,
-      // single-instance — see ticket 05's explicit no-concurrent-instances scope). Any
-      // item still "processing" was abandoned mid-generation by a crashed prior run.
-      let reclaimed = false;
-      for (const item of this.items) {
-        if (item.status === "processing") {
-          item.status = "pending";
-          reclaimed = true;
-        }
-      }
-      if (reclaimed) this.persist();
-    }
+  // Re-reads the file before every operation so a long-lived instance (the bot's poll
+  // loop) and short-lived instances (the `queue` CLI, run in a second terminal against
+  // the same working directory) never clobber each other's writes with a stale in-memory
+  // copy. This doesn't make concurrent writes atomic (still no locking, see ticket 05's
+  // explicit no-concurrent-instances scope) but it closes the common lost-update case
+  // where the bot process holds one Queue object for its entire runtime.
+  private reload(): void {
+    if (!existsSync(this.path)) return;
+    const data = JSON.parse(readFileSync(this.path, "utf-8")) as QueueFile;
+    this.items = data.items ?? [];
+    this.offset = data.offset ?? 0;
   }
 
   private persist(): void {
@@ -41,7 +38,23 @@ export class Queue {
     writeFileSync(this.path, JSON.stringify(data, null, 2));
   }
 
+  // Call once, at process startup, before polling — never from the CLI's short-lived
+  // instances, which must not disturb an item another (still-alive) process is actively
+  // generating. Recovers items a *crashed* prior run abandoned mid-generation.
+  reclaimStaleProcessing(): void {
+    this.reload();
+    let reclaimed = false;
+    for (const item of this.items) {
+      if (item.status === "processing") {
+        item.status = "pending";
+        reclaimed = true;
+      }
+    }
+    if (reclaimed) this.persist();
+  }
+
   add(input: { chatId: number; imagePath: string; topic: string }): QueueItem {
+    this.reload();
     const item: QueueItem = {
       id: nextId(),
       chatId: input.chatId,
@@ -56,10 +69,12 @@ export class Queue {
   }
 
   list(): QueueItem[] {
+    this.reload();
     return [...this.items];
   }
 
   next(): QueueItem | undefined {
+    this.reload();
     const item = this.items.find((i) => i.status === "pending");
     if (!item) return undefined;
     item.status = "processing";
@@ -72,6 +87,7 @@ export class Queue {
   }
 
   complete(id: string): void {
+    this.reload();
     const item = this.find(id);
     if (!item) return;
     item.status = "completed";
@@ -79,6 +95,7 @@ export class Queue {
   }
 
   fail(id: string, error: string): void {
+    this.reload();
     const item = this.find(id);
     if (!item) return;
     item.status = "failed";
@@ -87,6 +104,7 @@ export class Queue {
   }
 
   pause(id: string): void {
+    this.reload();
     const item = this.find(id);
     if (!item) return;
     item.status = "paused";
@@ -94,6 +112,7 @@ export class Queue {
   }
 
   resume(id: string): void {
+    this.reload();
     const item = this.find(id);
     if (!item) return;
     item.status = "pending";
@@ -101,15 +120,18 @@ export class Queue {
   }
 
   cancel(id: string): void {
+    this.reload();
     this.items = this.items.filter((i) => i.id !== id);
     this.persist();
   }
 
   getOffset(): number {
+    this.reload();
     return this.offset;
   }
 
   setOffset(n: number): void {
+    this.reload();
     this.offset = n;
     this.persist();
   }

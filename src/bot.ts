@@ -123,6 +123,7 @@ const POLL_ERROR_BACKOFF_MS = 2000;
 
 export async function runBot(config: Config, cwd: string, tg: TgPollClientLike): Promise<void> {
   const queue = new Queue(join(cwd, "queue.json"));
+  queue.reclaimStaleProcessing();
   for (;;) {
     let updates: TgUpdate[];
     try {
