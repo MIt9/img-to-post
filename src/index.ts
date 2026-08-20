@@ -10,6 +10,8 @@ import { runSetupWizard, createStdioWizardIO } from "./commands/setup.ts";
 import { runBot } from "./bot.ts";
 import { TelegramClient } from "./telegram.ts";
 
+import { VERSION } from "./version.ts";
+
 function fail(message: string): never {
   console.error(message);
   process.exit(1);
@@ -18,8 +20,18 @@ function fail(message: string): never {
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
 
+  if (command === "--version" || command === "-v" || command === "version") {
+    console.log(`img-to-post v${VERSION}`);
+    return;
+  }
+
   if (!command || command === "--help" || command === "-h") {
     console.log(HELP);
+    return;
+  }
+
+  if (rest.includes("--version") || rest.includes("-v")) {
+    console.log(`img-to-post v${VERSION}`);
     return;
   }
 

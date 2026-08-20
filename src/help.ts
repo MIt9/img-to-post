@@ -16,6 +16,7 @@ Commands:
 
 Options:
   --config <path>         Path to config file (default: ./img-to-post.config.json)
+  --version, -v           Show version
   --help, -h               Show this help
 
 Environment:

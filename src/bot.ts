@@ -6,6 +6,7 @@ import type { TgUpdate } from "./telegram.ts";
 import { routeTopic } from "./topic-router.ts";
 import { generatePost } from "./generate.ts";
 import { Queue } from "./queue.ts";
+import { VERSION } from "./version.ts";
 
 const USAGE =
   "Send a photo (optionally with a /<topic> caption) and I'll turn it into a post.\n" +
@@ -193,7 +194,7 @@ function queueStatusLine(queue: Queue): string {
 export async function runBot(config: Config, cwd: string, tg: TgPollClientLike): Promise<void> {
   const queue = new Queue(join(cwd, "queue.json"));
   queue.reclaimStaleProcessing();
-  console.log(`img-to-post bot is running. Queue: ${queueStatusLine(queue)}.`);
+  console.log(`img-to-post v${VERSION} bot is running. Queue: ${queueStatusLine(queue)}.`);
   console.log("Listening for Telegram messages (Ctrl+C or /stop in chat to quit)...");
 
   for (;;) {
