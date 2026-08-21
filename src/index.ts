@@ -7,6 +7,7 @@ import { topicsCommand } from "./commands/topics.ts";
 import { postCommand } from "./commands/post.ts";
 import { queueCommand } from "./commands/queue.ts";
 import { runSetupWizard, createStdioWizardIO } from "./commands/setup.ts";
+import { updateCommand } from "./commands/update.ts";
 import { runBot } from "./bot.ts";
 import { TelegramClient } from "./telegram.ts";
 
@@ -85,6 +86,9 @@ async function main(): Promise<void> {
       queueCommand(process.cwd(), action, id);
       return;
     }
+    case "update":
+      await updateCommand();
+      return;
     default:
       fail(`Unknown command: "${command}". Run "img-to-post --help" for usage.`);
   }

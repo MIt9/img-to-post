@@ -51,7 +51,7 @@ Building from source instead (any platform Bun supports): see
    topic, one combined Telegram reply when the whole batch finishes.
 3. **AI invocation** — run the configured shell command for the chosen
    provider, passing the image path and prompt. Capture stdout as the post.
-4. **Save** — create `<cwd>/posts/YYYY-MM-DD_HH-MM/`, copy the image as
+4. **Save** — create `<cwd>/posts/YYYY-MM-DD_HH-MM-SS/`, copy the image as
    `meme.<ext>`, write each generated variant as `post-1.md`, `post-2.md`, …
    (a topic's `variants` config controls the count, default 1 — always N
    *separate* AI calls, never one call parsed into pieces), and reply to the
@@ -81,6 +81,7 @@ img-to-post queue list              # list queued items and their status
 img-to-post queue pause <id>        # prevent a pending item from being picked up
 img-to-post queue resume <id>       # make a paused item eligible again
 img-to-post queue cancel <id>       # remove an item from the queue entirely
+img-to-post update                  # self-update to latest release from GitHub
 ```
 
 ## Config schema (`img-to-post.config.json`)
@@ -177,13 +178,13 @@ subprocess as an alternative to positional args (both are provided).
     tech.txt
     ai-news.txt
   posts/
-    2026-08-20_08-45/
+    2026-08-20_08-45-30/
       meme.jpg
       post-1.md
       post-2.md                  # one file per configured variant
 ```
 
-Folder name: `YYYY-MM-DD_HH-MM`. If the folder exists, append `-2`, `-3`, …
+Folder name: `YYYY-MM-DD_HH-MM-SS`. If the folder exists, append `-2`, `-3`, …
 
 ## Tech constraints
 

@@ -13,6 +13,7 @@ Commands:
   queue pause <id>        Prevent a pending item from being picked up
   queue resume <id>       Make a paused item eligible again
   queue cancel <id>       Remove an item from the queue entirely
+  update                  Check and download the latest release from GitHub
 
 Options:
   --config <path>         Path to config file (default: ./img-to-post.config.json)
