@@ -18,7 +18,7 @@ tmp_file="$(mktemp)"
 url="https://github.com/$REPO/releases/latest/download/$ASSET_NAME"
 
 echo "Downloading $url ..."
-curl -fsSL "$url" -o "$tmp_file"
+curl -fsSL -H "Cache-Control: no-cache" "$url" -o "$tmp_file"
 
 chmod +x "$tmp_file"
 xattr -d com.apple.quarantine "$tmp_file" 2>/dev/null || true
@@ -26,7 +26,12 @@ xattr -d com.apple.quarantine "$tmp_file" 2>/dev/null || true
 dest="$INSTALL_DIR/$BIN_NAME"
 mv "$tmp_file" "$dest"
 
-echo "Installed to $dest"
+installed_ver="$("$dest" --version 2>/dev/null || echo "")"
+if [ -n "$installed_ver" ]; then
+  echo "Installed $installed_ver to $dest"
+else
+  echo "Installed to $dest"
+fi
 
 case ":$PATH:" in
   *":$INSTALL_DIR:"*)
