@@ -68,6 +68,9 @@ Building from source instead (any platform Bun supports): see
    worker. Restarting resumes exactly where it left off (queue state + the
    Telegram `getUpdates` offset both persist to disk) — no reprocessing, no
    duplicate replies. `img-to-post queue` manages it from a second terminal.
+8. **AI Agent Skill** — includes a skill definition at
+   [skills/img-to-post/SKILL.md](skills/img-to-post/SKILL.md) for automatic
+   discovery by Claude Code and Antigravity.
 
 ## CLI surface
 
