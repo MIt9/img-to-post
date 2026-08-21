@@ -9,7 +9,7 @@ export function formatFolderDate(d = new Date()): string {
 export function writePost(input: {
   cwd: string;
   imagePath: string;
-  slug: string;
+  slug?: string;
   date: string;
   variants: string[];
   topic?: string;
@@ -18,10 +18,10 @@ export function writePost(input: {
   const postsDir = join(input.cwd, "posts");
   let dir = input.targetDir;
   if (!dir) {
-    dir = join(postsDir, `${input.date}_${input.slug}`);
+    dir = join(postsDir, input.date);
     let attempt = 2;
     while (existsSync(dir)) {
-      dir = join(postsDir, `${input.date}_${input.slug}-${attempt}`);
+      dir = join(postsDir, `${input.date}-${attempt}`);
       attempt++;
     }
   }

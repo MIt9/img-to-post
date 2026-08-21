@@ -4,6 +4,7 @@ import type { Config } from "./types.ts";
 import { runProvider } from "./ai.ts";
 import { deriveSlug } from "./slug.ts";
 import { writePost, formatFolderDate } from "./output.ts";
+import { appendAntiSlopInstructions, sanitizeAntiSlop } from "./antislop.ts";
 
 export async function generatePost(
   config: Config,
@@ -24,7 +25,8 @@ export async function generatePost(
     throw new Error(`Unknown AI provider: "${providerKey}"`);
   }
 
-  const prompt = readFileSync(join(config.configDir, topic.promptFile), "utf-8");
+  const rawPrompt = readFileSync(join(config.configDir, topic.promptFile), "utf-8");
+  const prompt = appendAntiSlopInstructions(rawPrompt);
 
   const variantCount = topic.variants ?? 1;
   const rawTexts: string[] = [];
@@ -33,7 +35,8 @@ export async function generatePost(
     if (!result.ok) {
       throw new Error(result.stderr.trim() || "AI provider exited with a non-zero status");
     }
-    rawTexts.push(result.stdout.trim());
+    const sanitized = sanitizeAntiSlop(result.stdout.trim());
+    rawTexts.push(sanitized);
   }
 
   const slug = deriveSlug(rawTexts[0] ?? "", imagePath);
@@ -43,3 +46,4 @@ export async function generatePost(
 
   return { dir, variants };
 }
+

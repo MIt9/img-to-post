@@ -41,3 +41,5 @@ posts/
 *.log
 /img-to-post
 img-to-post-macos
+tmp/
+

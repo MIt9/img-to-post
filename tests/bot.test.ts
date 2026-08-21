@@ -80,7 +80,7 @@ test("a photo update is queued immediately, then processed by drainQueue", async
 
   await drainQueue(queue, config, cwd, tg);
 
-  const dir = join(cwd, "posts", `${formatFolderDate()}_bot-photo-post`);
+  const dir = join(cwd, "posts", formatFolderDate());
   expect(existsSync(join(dir, "meme.jpg"))).toBe(true);
   expect(readFileSync(join(dir, "post-tech.md"), "utf-8").trim()).toBe("generated text");
 
@@ -111,7 +111,7 @@ test("a document update maps mime type to file extension", async () => {
 
   await drainQueue(queue, config, cwd, tg);
 
-  const dir = join(cwd, "posts", `${formatFolderDate()}_bot-doc-post`);
+  const dir = join(cwd, "posts", formatFolderDate());
   expect(existsSync(dir)).toBe(true);
 });
 
@@ -135,7 +135,7 @@ test("a caption matching a configured topic key routes to that topic", async () 
   expect(queue.list()[0]?.topic).toBe("life");
   await drainQueue(queue, config, cwd, tg);
 
-  const dir = join(cwd, "posts", `${formatFolderDate()}_routed-post`);
+  const dir = join(cwd, "posts", formatFolderDate());
   expect(readFileSync(join(dir, "post-life.md"), "utf-8")).toContain("LIFE PROMPT");
 });
 
@@ -155,7 +155,7 @@ test("an unmatched caption falls back to defaultTopic", async () => {
   expect(queue.list()[0]?.topic).toBe("tech");
   await drainQueue(queue, config, cwd, tg);
 
-  const dir = join(cwd, "posts", `${formatFolderDate()}_default-routed`);
+  const dir = join(cwd, "posts", formatFolderDate());
   expect(existsSync(dir)).toBe(true);
 });
 

@@ -51,15 +51,19 @@ Building from source instead (any platform Bun supports): see
    topic, one combined Telegram reply when the whole batch finishes.
 3. **AI invocation** — run the configured shell command for the chosen
    provider, passing the image path and prompt. Capture stdout as the post.
-4. **Save** — create `<cwd>/posts/YYYY-MM-DD_<slug>/`, copy the image as
+4. **Save** — create `<cwd>/posts/YYYY-MM-DD_HH-MM/`, copy the image as
    `meme.<ext>`, write each generated variant as `post-1.md`, `post-2.md`, …
    (a topic's `variants` config controls the count, default 1 — always N
    *separate* AI calls, never one call parsed into pieces), and reply to the
    Telegram chat with the saved paths + the first variant's text.
-5. **Config** — read `img-to-post.config.json` from the working directory
+5. **Anti-AI Slop** — built-in automatic prompt enrichment and post-processing
+   sanitizer for Ukrainian, English, and other languages. Eliminates AI clichés,
+   throat-clearing openers ("Let's dive in", "У сучасному світі"), binary
+   contrasts, trailing participle fluff, and formatting spam.
+6. **Config** — read `img-to-post.config.json` from the working directory
    (or `--config <path>` / `IMG2POST_CONFIG`). No `.env` support and no
    global fallback directory — config is scoped to the invoking cwd only.
-6. **Queue** — incoming Telegram images are appended to a queue persisted as
+7. **Queue** — incoming Telegram images are appended to a queue persisted as
    `queue.json` in cwd, drained one item at a time by a single sequential
    worker. Restarting resumes exactly where it left off (queue state + the
    Telegram `getUpdates` offset both persist to disk) — no reprocessing, no
@@ -173,16 +177,13 @@ subprocess as an alternative to positional args (both are provided).
     tech.txt
     ai-news.txt
   posts/
-    2026-08-20_rsc-learning-curve/
+    2026-08-20_08-45/
       meme.jpg
       post-1.md
       post-2.md                  # one file per configured variant
 ```
 
-Folder name: `YYYY-MM-DD_<slug>`. Slug is derived from the AI output's first
-line if it is a clean slug (`^[A-Za-z0-9][A-Za-z0-9 -]*$`), optionally prefixed
-`SLUG:`; otherwise fall back to the sanitized source filename. If the folder
-exists, append `-2`, `-3`, …
+Folder name: `YYYY-MM-DD_HH-MM`. If the folder exists, append `-2`, `-3`, …
 
 ## Tech constraints
 
@@ -202,7 +203,7 @@ exists, append `-2`, `-3`, …
 
 ## Tests
 
-73 tests across 10 files, `bun test`. Covers: config load + validation + env
+94 tests across 13 files, `bun test`. Covers: config load + validation + env
 override precedence; topic routing (caption `/tech`, unknown → default);
 slug derivation (first line / `SLUG:` prefix / filename fallback); subprocess
 invocation (argv, stdout capture, timeout, stdin mode, non-zero exit);

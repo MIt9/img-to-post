@@ -14,10 +14,10 @@ function setup(): { cwd: string; imagePath: string } {
   return { cwd, imagePath };
 }
 
-test("creates dated slug folder with copied image and a single post-1.md for one variant", () => {
+test("creates dated folder with copied image and a single post-1.md for one variant", () => {
   const { cwd, imagePath } = setup();
   const dir = writePost({ cwd, imagePath, slug: "rsc-learning-curve", date: "2026-08-20", variants: ["post body"] });
-  expect(dir).toBe(join(cwd, "posts", "2026-08-20_rsc-learning-curve"));
+  expect(dir).toBe(join(cwd, "posts", "2026-08-20"));
   expect(existsSync(join(dir, "meme.jpg"))).toBe(true);
   expect(readFileSync(join(dir, "meme.jpg"), "utf-8")).toBe("fake-image-bytes");
   expect(readFileSync(join(dir, "post-1.md"), "utf-8")).toBe("post body");
@@ -48,10 +48,10 @@ test("preserves the source image's extension", () => {
 
 test("appends -2, -3 on folder name collision instead of overwriting", () => {
   const { cwd, imagePath } = setup();
-  mkdirSync(join(cwd, "posts", "2026-08-20_rsc-learning-curve"), { recursive: true });
-  mkdirSync(join(cwd, "posts", "2026-08-20_rsc-learning-curve-2"), { recursive: true });
+  mkdirSync(join(cwd, "posts", "2026-08-20"), { recursive: true });
+  mkdirSync(join(cwd, "posts", "2026-08-20-2"), { recursive: true });
   const dir = writePost({ cwd, imagePath, slug: "rsc-learning-curve", date: "2026-08-20", variants: ["x"] });
-  expect(dir).toBe(join(cwd, "posts", "2026-08-20_rsc-learning-curve-3"));
+  expect(dir).toBe(join(cwd, "posts", "2026-08-20-3"));
 });
 
 test("saves post-<topic>.md and reuses targetDir without duplicating image", () => {

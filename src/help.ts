@@ -1,4 +1,4 @@
-export const HELP = `img-to-post — turn images into posts via an external AI CLI
+export const HELP = `img-to-post — turn images into posts via an external AI CLI with built-in anti-slop filtering
 
 Usage:
   img-to-post <command> [options]
